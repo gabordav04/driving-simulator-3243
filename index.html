@@ -2,6 +2,22 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101923"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="DS 3243"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"><title>Driving Simulator 3243</title><link rel="stylesheet" href="/styles.css">
+<script>
+window.__dsEarlyErrors=[];
+window.__dsMainStarted=false;
+window.__dsMainReachedMapInit=false;
+window.addEventListener('error',function(e){
+ const item='JS error: '+(e.message||'unknown')+' | '+(e.filename||'')+':'+(e.lineno||0)+':'+(e.colno||0);
+ window.__dsEarlyErrors.push(item);
+ if(window.__dsEarlyErrors.length>30)window.__dsEarlyErrors.shift();
+},true);
+window.addEventListener('unhandledrejection',function(e){
+ const reason=e.reason;
+ const item='Unhandled promise: '+(reason&&reason.stack||reason&&reason.message||String(reason));
+ window.__dsEarlyErrors.push(item);
+ if(window.__dsEarlyErrors.length>30)window.__dsEarlyErrors.shift();
+});
+</script>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js"}}</script>
 </head>
 <body>
