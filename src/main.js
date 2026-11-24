@@ -1,8 +1,15 @@
 const $ = (s) => document.querySelector(s);
-const routeFiles = Array.from({length:10},(_,i)=>({id:i+1,url:`/assets/routes/route-${String(i+1).padStart(2,"0")}.jpg`}));
+const routeFiles = Array.from({length:10},(_,i)=>({id:i+1,url:i===0?'https://web.testpdr.com/storage/markdown-images/N851zFQU66UmxN3nn9vVQ1vXGWTFCu15tnfZS5zY.jpg':null}));
 const route=$('#route');
 routeFiles.forEach(r=>{const o=document.createElement('option');o.value=r.id;o.textContent=`Маршрут №${r.id}`;route.append(o)});
-function showRoute(){const r=routeFiles.find(x=>x.id===Number(route.value));$('#routeImage').src=r.url;$('#routeCaption').textContent=`Схема маршруту №${r.id} · зображення буде підключене після додавання файлів до репозиторію`;$('#routeImage').onerror=()=>{$('#routeImage').style.display='none';$('#routeCaption').textContent='Схема №'+r.id+' вибрана. Файл схеми ще не опублікований у вебрепозиторії.'};$('#routeImage').onload=()=>{$('#routeImage').style.display='block'};}
+function showRoute(){
+ const r=routeFiles.find(x=>x.id===Number(route.value));
+ const img=$('#routeImage'),box=$('.routeimg');
+ img.onerror=()=>{img.style.display='none';box.classList.add('no-image');$('#routeCaption').textContent='Схему цього маршруту ще не додано.';};
+ img.onload=()=>{img.style.display='block';box.classList.remove('no-image');};
+ if(r?.url){img.src=r.url;$('#routeCaption').textContent='Офіційна схема маршруту №1';}
+ else{img.removeAttribute('src');img.style.display='none';box.classList.add('no-image');$('#routeCaption').textContent='Схему цього маршруту ще не додано.';}
+}
 route.addEventListener('change',showRoute);showRoute();
 const PROFILE_KEY='ds3243.profile.v1',PROGRESS_KEY='ds3243.progress.v1';
 function loadProfile(){try{const p=JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}');$('#fullName').value=p.fullName||'';$('#phone').value=p.phone||'';}catch{}}
@@ -15,7 +22,7 @@ $('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRE
 const MAPS_KEY='ds3243.googlemaps.key.v1';
 let googleMap=null, mapsLoaded=false, mapVisible=false;
 const ROUTE1_POINTS_KEY='ds3243.route1.controlPoints.v1';
-let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null, routeCar=null;
+let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null;
 let routePath=[], routeCar=null, routePathMeters=[], routeProgressMeters=0, mapDriving=false;
 const ROUTE1_PATH_KEY='ds3243.route1.roadPath.v1';
 function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
@@ -89,7 +96,7 @@ async function loadGoogleMap(apiKey){
         clickableIcons:true
       });
     }
-    setMapMessage('Google Maps завантажено. Додай контрольні точки маршруту №1 за схемою, потім побудуй траєкторію по дорогах.');
+    setMapMessage('Карта готова. Обери маршрут і додай контрольні точки, щоб побудувати його дорожню траєкторію.');
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
     try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1)prepareRoutePath(savedPath);}catch{}
@@ -226,5 +233,6 @@ document.querySelectorAll('[data-gear]').forEach(b=>b.addEventListener('click',(
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key))e.preventDefault();if(k==='q')setSignal('←');if(k==='e')setSignal('→');if(k==='l'){lights=!lights;$('#lights').textContent='Світло: '+(lights?'увімкнено':'вимкнено');updateStatus();}if(k==='c'){camera=camera==='cockpit'?'chase':'cockpit';document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x.dataset.camera===camera));}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 document.querySelectorAll('[data-touch]').forEach(b=>{const k=b.dataset.touch;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));});
-function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible)advanceMapCar(dt);elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();requestAnimationFrame(animate);}
+function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible)advanceMapCar(dt);elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();if(localStorage.getItem(MAPS_KEY)){setView(true);}
+requestAnimationFrame(animate);}
 requestAnimationFrame(animate);
