@@ -314,6 +314,5 @@ if(driverVisible&&mapDriving&&streetPanorama&&routePathMeters.length&&Math.abs(r
  }).catch(()=>{});
 }
 elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
-if(localStorage.getItem(MAPS_KEY)){setView(true);}
 requestAnimationFrame(animate);}
 requestAnimationFrame(animate);
