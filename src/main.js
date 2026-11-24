@@ -248,7 +248,7 @@ $('#lights').addEventListener('click',()=>{lights=!lights;$('#lights').textConte
 $('#horn').addEventListener('click',()=>say('Звуковий сигнал','Сигнал активовано в симуляції. Використовуй його лише за необхідності.'));
 $('#scenario').addEventListener('change',()=>{const s=scenarios[$('#scenario').value];say('Обрана ситуація: '+s.title,'Натисніть «Почати заїзд» або запитайте інструктора.');});
 $('#start').addEventListener('click',()=>{started=true;
-  if(mapVisible){
+  if(mapVisible||driverVisible){
     if(!routePath.length){started=false;setRouteEditStatus('Спочатку нанеси контрольні точки та натисни «Побудувати дорогу».');return;}
     mapDriving=true;routeProgressMeters=0;speed=0;const p=positionOnRoute(0);if(p&&routeCar)routeCar.setPosition(p);
     setRouteEditStatus('Заїзд розпочато. W/↑ — газ, S/↓ або пробіл — гальмо. Автомобіль рухається по побудованій траєкторії.');
@@ -262,7 +262,7 @@ document.querySelectorAll('[data-gear]').forEach(b=>b.addEventListener('click',(
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key))e.preventDefault();if(k==='q')setSignal('←');if(k==='e')setSignal('→');if(k==='l'){lights=!lights;$('#lights').textContent='Світло: '+(lights?'увімкнено':'вимкнено');updateStatus();}if(k==='c'){camera=camera==='cockpit'?'chase':'cockpit';document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x.dataset.camera===camera));}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 document.querySelectorAll('[data-touch]').forEach(b=>{const k=b.dataset.touch;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));});
-function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible)advanceMapCar(dt);
+function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible||driverVisible)advanceMapCar(dt);
 if(driverVisible&&mapDriving&&streetPanorama&&routePathMeters.length&&Math.abs(routeProgressMeters-lastPanoMeters)>35&&performance.now()-lastPanoRequest>2500){
  lastPanoMeters=routeProgressMeters;lastPanoRequest=performance.now();
  const pos=positionOnRoute(routeProgressMeters);
