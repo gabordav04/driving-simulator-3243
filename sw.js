@@ -33,7 +33,7 @@ self.addEventListener('fetch',event=>{
     })());
     return;
   }
-  const networkFirst=/\\.(?:js|css|json)$/.test(url.pathname);
+  const networkFirst=/\.(?:js|css|json)$/.test(url.pathname);
   event.respondWith((async()=>{
     const cached=await caches.match(request);
     if(networkFirst){
