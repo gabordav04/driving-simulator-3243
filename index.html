@@ -7,13 +7,13 @@
 <div id="pwaInstallHint" class="pwa-hint" hidden><span>Встанови DS 3243 на головний екран iPhone: Поділитися → На початковий екран.</span><button id="dismissPwaHint" type="button" aria-label="Закрити">×</button></div><header class="top"><a class="brand" href="/">DS <span>3243</span></a><div class="topmeta">Бровари · тренажер практичного водіння</div><div class="status"><i></i> WEB PROTOTYPE</div></header>
 <main class="shell">
 <aside class="panel setup"><div class="eyebrow">ПІДГОТОВКА</div><h1>Тренування водія</h1><p class="muted">Оберіть схему маршруту, коробку передач і режим. Географічна прив'язка маршрутів буде окремо перевірена.</p>
-<details class="mobile-fold advanced-fold"><summary>Профіль та ключ Google Maps</summary><div class="fold-content"><section class="profilebox"><div class="eyebrow">ОСОБИСТИЙ ПРОФІЛЬ</div><label for="fullName">ПІБ</label><input id="fullName" autocomplete="name" placeholder="Прізвище, ім’я, по батькові"><label for="phone">Номер телефону</label><input id="phone" type="tel" autocomplete="tel" placeholder="+380..."><button id="saveProfile" class="secondary">Зберегти профіль на цьому пристрої</button><small id="profileStatus" class="muted">Дані зберігаються лише в цьому браузері.</small></section>
+<details class="mobile-fold advanced-fold"><summary>Ключ Google Maps</summary><div class="fold-content">
 <section class="profilebox mapkeybox">
   <div class="eyebrow">GOOGLE MAPS</div>
   <label for="mapsKey">API-ключ для карти</label>
   <input id="mapsKey" type="password" autocomplete="off" placeholder="Встав API-ключ Google Maps">
   <button id="saveMapsKey" class="secondary">Зберегти ключ у цьому браузері</button>
-  <small id="mapsKeyStatus" class="muted">Ключ не передається в чат або GitHub. Використовується тільки на цьому сайті.</small>
+  <small id="mapsKeyStatus" class="muted">Ключ зберігається локально на цьому пристрої та використовується тільки для карти.</small>
 </section></div></details>
 <label for="route">Екзаменаційний маршрут</label><select id="route"></select><details class="mobile-fold route-scheme"><summary>Переглянути схему маршруту</summary><div class="routeimg"><img id="routeImage" alt="Схема маршруту"><small id="routeCaption"></small></div></details>
 <details class="mobile-fold settings-fold"><summary>Налаштування заїзду</summary><div class="fold-content"><label>Режим</label><div class="seg"><button class="active" data-mode="learn">Навчання</button><button data-mode="exam">Іспит</button></div>
