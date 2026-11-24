@@ -16,3 +16,6 @@
 .route-editor button{font-size:9px;padding:7px 9px}
 .route-editor button.active{background:#8bd4c0;color:#10221e;border-color:#8bd4c0}
 .route-editor small{flex-basis:100%;line-height:1.4}
+
+.routeSchemeLink{font-size:9px;color:#8bd4c0;text-decoration:underline;margin-right:5px}
+.route-editor{max-height:150px;overflow:auto}
