@@ -164,71 +164,89 @@ window.gm_authFailure=function(){
   mapStatus.textContent='Google не авторизував ключ. Відкрий Google Cloud → APIs & Services → Credentials.';
 };
 async function loadGoogleMap(apiKey){
-  if(!apiKey){setMapMessage('Спочатку збережи Google Maps API-ключ у налаштуваннях.');return false;}
-  if(!window.google?.maps?.importLibrary){
-    mapsAuthFailed=false;
-    setMapMessage('Завантажуємо Google Maps…');
-    let script=document.querySelector('script[data-ds-google-maps]');
-    if(!script){
-      script=document.createElement('script');
-      script.dataset.dsGoogleMaps='1';
-      script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&v=weekly&language=uk&region=UA';
-      script.async=true;
-      script.onerror=()=>setMapMessage('Не вдалося завантажити Google Maps. Перевір інтернет і API-ключ.');
-      document.head.appendChild(script);
-    }
-    try{
-      await new Promise((resolve,reject)=>{
-        if(window.google?.maps?.importLibrary){resolve();return;}
-        script.addEventListener('load',resolve,{once:true});
-        script.addEventListener('error',()=>reject(new Error('Maps script failed')),{once:true});
-      });
-      mapsLoaded=true;
-      await new Promise(resolve=>setTimeout(resolve,350));
-    }catch(error){
-      setMapMessage('Google Maps не завантажився: '+(error?.message||'перевір API-ключ та доступ до Maps JavaScript API.'));
-      return false;
-    }
-  }else mapsLoaded=true;
-  if(mapsAuthFailed)return false;
+  if(!apiKey){
+    setMapMessage('Немає збереженого Google Maps API-ключа. Відкрий «Ключ Google Maps» і збережи ключ.');
+    return false;
+  }
   try{
+    if(!window.google?.maps?.importLibrary){
+      mapsAuthFailed=false;
+      setMapMessage('Підключаємо Google Maps…');
+      let script=document.querySelector('script[data-ds-google-maps]');
+      if(!window.__dsMapsLoadPromise){
+        window.__dsMapsLoadPromise=new Promise((resolve,reject)=>{
+          const timeout=setTimeout(()=>reject(new Error('Час очікування Google Maps вичерпано')),15000);
+          const finish=()=>{clearTimeout(timeout);resolve();};
+          const fail=()=>{clearTimeout(timeout);reject(new Error('Не вдалося завантажити скрипт Google Maps'));};
+          if(window.google?.maps?.importLibrary){finish();return;}
+          if(!script){
+            script=document.createElement('script');
+            script.dataset.dsGoogleMaps='1';
+            script.async=true;
+            script.defer=true;
+            script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&v=weekly&language=uk&region=UA';
+            script.addEventListener('load',finish,{once:true});
+            script.addEventListener('error',fail,{once:true});
+            document.head.appendChild(script);
+          }else{
+            script.addEventListener('load',finish,{once:true});
+            script.addEventListener('error',fail,{once:true});
+            const poll=setInterval(()=>{
+              if(window.google?.maps?.importLibrary){clearInterval(poll);finish();}
+            },150);
+            setTimeout(()=>clearInterval(poll),15000);
+          }
+        }).catch(error=>{window.__dsMapsLoadPromise=null;throw error;});
+      }
+      await window.__dsMapsLoadPromise;
+      if(!window.google?.maps?.importLibrary)throw new Error('Google Maps скрипт завантажився, але API не ініціалізувався');
+      mapsLoaded=true;
+    }else mapsLoaded=true;
+    if(mapsAuthFailed)throw new Error('Google відхилив API-ключ. Перевір доступ Maps JavaScript API, Billing та HTTP referrer.');
     const {Map}=await google.maps.importLibrary('maps');
+    const mapElement=$('#googleMap');
+    if(!mapElement)throw new Error('Не знайдено контейнер карти');
     if(!googleMap){
-      googleMap=new Map($('#googleMap'),{
+      googleMap=new Map(mapElement,{
         center:{lat:50.50336903085713,lng:30.84229163764248},
-        zoom:17,
-        minZoom:12,
-        maxZoom:21,
-        mapTypeId:'roadmap',
-        mapTypeControl:true,
-        mapTypeControlOptions:{style:google.maps.MapTypeControlStyle.HORIZONTAL_BAR,position:google.maps.ControlPosition.TOP_LEFT,mapTypeIds:['roadmap','satellite','hybrid','terrain']},
-        zoomControl:true,
-        zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_BOTTOM},
-        streetViewControl:false,
-        fullscreenControl:true,
-        clickableIcons:true,
-        gestureHandling:'greedy',
-        scrollwheel:true,
-        disableDoubleClickZoom:false,
-        keyboardShortcuts:true
+        zoom:17,minZoom:12,maxZoom:21,mapTypeId:'roadmap',
+        mapTypeControl:false,zoomControl:false,streetViewControl:false,
+        fullscreenControl:true,clickableIcons:true,
+        gestureHandling:'greedy',scrollwheel:true,
+        disableDoubleClickZoom:false,keyboardShortcuts:true
       });
+      googleMap.addListener('idle',()=>{
+        mapElement.dataset.mapReady='true';
+        mapElement.dataset.mapError='';
+        setMapMessage('Карта завантажена. Перетягуй її пальцем, масштабуй двома пальцями або кнопками +/−.');
+      });
+      googleMap.addListener('maptypeid_changed',updateMapLayerButtons);
+    }else{
+      googleMap.setOptions({gestureHandling:'greedy',scrollwheel:true,disableDoubleClickZoom:false});
     }
-    googleMap.setOptions({gestureHandling:'greedy',scrollwheel:true,zoomControl:false,mapTypeControl:false,disableDoubleClickZoom:false,keyboardShortcuts:true});
-    updateMapLayerButtons();
-    googleMap.addListener('maptypeid_changed',()=>{const type=googleMap.getMapTypeId();setMapMessage(type==='satellite'||type==='hybrid'?'Супутниковий режим активний. Масштабування — двома пальцями або кнопками +/−, переміщення — перетягуванням карти.':'Звичайна карта активна. Масштабування — двома пальцями або кнопками +/−, переміщення — перетягуванням карти.');});
+    await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+    google.maps.event.trigger(googleMap,'resize');
+    googleMap.setCenter(googleMap.getCenter()||{lat:50.50336903085713,lng:30.84229163764248});
     ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
-    setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
-    let hasSavedRoute=false;try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1){prepareRoutePath(savedPath);hasSavedRoute=true;}}catch{}
+    let hasSavedRoute=false;
+    try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1){prepareRoutePath(savedPath);hasSavedRoute=true;}}catch{}
     drawRouteMarkers();
     if(!googleMap.__routeEditorBound){
       googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
       googleMap.__routeEditorBound=true;
     }
-    if(!mapsAuthFailed){if(hasSavedRoute)setMapMessage('Карта готова. Маршрут №1 завантажено зі збережених дорожніх координат.');else await buildRoute1Preview();}
-    return !mapsAuthFailed;
+    if(!mapsAuthFailed){
+      if(hasSavedRoute)setMapMessage('Карта готова. Маршрут №1 завантажено зі збережених дорожніх координат.');
+      else await buildRoute1Preview();
+    }
+    updateMapLayerButtons();
+    return true;
   }catch(error){
-    setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'.');
+    console.error('DS3243 Google Maps initialization failed:',error);
+    const message=error?.message||'невідома помилка';
+    $('#googleMap').dataset.mapError=message;
+    showMapFailure('Карта не завантажилася: '+message+'. Перевір інтернет та Google Maps API-ключ.');
     return false;
   }
 }
@@ -239,6 +257,14 @@ $('#saveMapsKey').addEventListener('click',()=>{
   mapStatus.textContent='Ключ збережено локально в цьому браузері.';
   loadGoogleMap(value);
 });
+function showMapFailure(message){
+ const el=$('#mapMessage');el.style.display='block';
+ el.innerHTML='';
+ const text=document.createElement('span');text.textContent=message;el.appendChild(text);
+ const retry=document.createElement('button');retry.type='button';retry.textContent='Повторити';retry.style.marginLeft='10px';
+ retry.addEventListener('click',()=>{window.__dsMapsLoadPromise=null;const key=localStorage.getItem(MAPS_KEY);loadGoogleMap(key);});
+ el.appendChild(retry);
+}
 function setView(showMap){
   mapVisible=showMap;driverVisible=false;
   $('#driverView').style.display='none';
@@ -254,7 +280,7 @@ function setView(showMap){
   $('.sim').classList.remove('view-clean');
   if(showMap){
     const key=localStorage.getItem(MAPS_KEY);
-    if(key)loadGoogleMap(key);
+    if(key){requestAnimationFrame(()=>{loadGoogleMap(key);});}
     else setMapMessage('Введи API-ключ Google Maps у лівій панелі та натисни «Зберегти ключ».');
   }
 }
