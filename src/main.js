@@ -196,9 +196,25 @@ async function loadGoogleMap(apiKey){
     if(!googleMap){
       googleMap=new Map($('#googleMap'),{
         center:{lat:50.50336903085713,lng:30.84229163764248},
-        zoom:17,mapTypeControl:true,streetViewControl:false,fullscreenControl:true,clickableIcons:true
+        zoom:17,
+        minZoom:12,
+        maxZoom:21,
+        mapTypeId:'roadmap',
+        mapTypeControl:true,
+        mapTypeControlOptions:{style:google.maps.MapTypeControlStyle.HORIZONTAL_BAR,position:google.maps.ControlPosition.TOP_LEFT,mapTypeIds:['roadmap','satellite','hybrid','terrain']},
+        zoomControl:true,
+        zoomControlOptions:{position:google.maps.ControlPosition.RIGHT_BOTTOM},
+        streetViewControl:false,
+        fullscreenControl:true,
+        clickableIcons:true,
+        gestureHandling:'greedy',
+        scrollwheel:true,
+        disableDoubleClickZoom:false,
+        keyboardShortcuts:true
       });
     }
+    googleMap.setOptions({gestureHandling:'greedy',scrollwheel:true,zoomControl:true,mapTypeControl:true});
+    googleMap.addListener('maptypeid_changed',()=>{const type=googleMap.getMapTypeId();setMapMessage(type==='satellite'||type==='hybrid'?'Супутниковий режим активний. Масштабування — двома пальцями або кнопками +/−, переміщення — перетягуванням карти.':'Звичайна карта активна. Масштабування — двома пальцями або кнопками +/−, переміщення — перетягуванням карти.');});
     ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
