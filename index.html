@@ -23,17 +23,19 @@
 </div></details><button id="start" class="primary">▶ Почати заїзд</button><button id="reset" class="secondary">↺ Скинути автомобіль</button></aside>
 <section class="sim">
 <div class="simtoolbar"><button id="showSim" class="active">3D-прототип</button><button id="showMap">Карта</button><button id="showDriver">Вид з авто</button></div>
-<div id="routeEditor" class="route-editor" style="display:none">
-  <b>МАРШРУТ №1 · ОФІЦІЙНА СХЕМА</b>
-  <a class="routeSchemeLink" href="https://web.testpdr.com/storage/markdown-images/N851zFQU66UmxN3nn9vVQ1vXGWTFCu15tnfZS5zY.jpg" target="_blank" rel="noopener">Відкрити схему маршруту ↗</a>
-  <span id="routePointCount">Точок: 0</span>
-  <button id="setRouteStart">Старт: ТСЦ 3243</button>
-  <button id="editRoutePoints">＋ Додати точки</button>
-  <button id="undoRoutePoint">↶ Скасувати</button>
-  <button id="buildRoute">Побудувати дорогу</button>
-  <button id="clearRoutePoints">Очистити</button>
-  <small id="routeEditStatus">Увімкни додавання та клацай по карті вздовж синьої лінії в напрямку червоних стрілок.</small>
-</div>
+<details id="routeEditor" class="route-editor" style="display:none">
+  <summary>Керування маршрутом <span id="routePointCount">0 точок</span></summary>
+  <div class="route-editor-content">
+    <b>МАРШРУТ №1 · ОФІЦІЙНА СХЕМА</b>
+    <a class="routeSchemeLink" href="https://web.testpdr.com/storage/markdown-images/N851zFQU66UmxN3nn9vVQ1vXGWTFCu15tnfZS5zY.jpg" target="_blank" rel="noopener">Відкрити схему маршруту ↗</a>
+    <button id="setRouteStart">Старт: ТСЦ 3243</button>
+    <button id="editRoutePoints">＋ Додати точки</button>
+    <button id="undoRoutePoint">↶ Скасувати</button>
+    <button id="buildRoute">Побудувати дорогу</button>
+    <button id="clearRoutePoints">Очистити</button>
+    <small id="routeEditStatus">Додай контрольні точки на карті в напрямку червоних стрілок.</small>
+  </div>
+</details>
 <div id="googleMap" aria-label="Карта Броварів"></div><div id="driverView" aria-label="Вид водія Street View"><div id="streetPanorama"></div><div id="streetMessage">Натисни «Вид з авто», щоб завантажити панораму вулиці. Потрібне покриття Street View.</div></div>
 <div id="mapMessage" class="mapmessage">Введи свій Google Maps API-ключ у лівій панелі та натисни «Зберегти ключ».</div>
 <canvas id="scene" aria-label="Симуляція руху автомобіля"></canvas><div class="hud"><div><small>ШВИДКІСТЬ</small><b><span id="speed">0</span> <small>км/год</small></b></div><div><small>ПЕРЕДАЧА</small><b id="gearValue">1</b></div><div><small>ЧАС</small><b id="elapsed">00:00</b></div><div><small>ПОВОРОТНИК</small><b id="signalValue">—</b></div></div><div class="coach"><div class="coachicon">✦</div><div><b id="coachTitle">Інструктор очікує</b><p id="coachText">Натисніть «Почати заїзд». Клавіші керування: W/A/S/D або стрілки.</p></div></div><div class="controls"><kbd>W/↑</kbd> газ <kbd>S/↓</kbd> гальмо <kbd>A/←</kbd> ліворуч <kbd>D/→</kbd> праворуч <kbd>Q</kbd>/<kbd>E</kbd> поворотники <kbd>L</kbd> світло <kbd>C</kbd> камера</div><div class="touch"><button data-touch="a">◀</button><button data-touch="w">▲</button><button data-touch="d">▶</button><button data-touch="s">▼</button></div></section>
