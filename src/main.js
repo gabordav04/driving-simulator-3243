@@ -118,6 +118,7 @@ $('#saveMapsKey').addEventListener('click',()=>{
 });
 function setView(showMap){
   mapVisible=showMap;
+  $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
   $('#routeEditor').style.display=showMap?'flex':'none';
   canvas.style.display=showMap?'none':'block';
@@ -131,17 +132,13 @@ function setView(showMap){
   }
 }
 $('#showMap').addEventListener('click',()=>setView(true));
-$('#setRouteStart').addEventListener('click',async()=>{
-  try{
-    const {Geocoder}=await google.maps.importLibrary('geocoding');
-    const geocoder=new Geocoder();
-    const result=await geocoder.geocode({address:'ТСЦ МВС №3243, вул. Броварської сотні, 4А, Бровари, Україна'});
-    if(!result.results?.length){setRouteEditStatus('Не вдалося знайти адресу ТСЦ 3243.');return;}
-    const p=result.results[0].geometry.location;
-    routePoints=[{lat:p.lat(),lng:p.lng()}];saveRoutePoints();drawRouteMarkers();
-    googleMap.setCenter(p);googleMap.setZoom(17);
-    setRouteEditStatus('Стартову точку ТСЦ 3243 встановлено. Увімкни додавання точок і клацай по карті за напрямком стрілок на офіційній схемі.');
-  }catch(e){setRouteEditStatus('Не вдалося визначити координати ТСЦ. Перевір Geocoding API або встанови стартову точку вручну.');}
+$('#setRouteStart').addEventListener('click',()=>{
+  if(!googleMap){setRouteEditStatus('Спочатку завантаж карту Google Maps.');return;}
+  const center=googleMap.getCenter();
+  if(!center){setRouteEditStatus('Карта ще завантажується. Спробуй за мить.');return;}
+  routePoints=[{lat:center.lat(),lng:center.lng()}];
+  saveRoutePoints();drawRouteMarkers();googleMap.setZoom(Math.max(googleMap.getZoom()||15,17));
+  setRouteEditStatus('Стартову контрольну точку встановлено в центрі карти. Перемісти карту до входу ТСЦ 3243, якщо потрібно, та уточни точку перед додаванням решти маршруту.');
 });
 $('#editRoutePoints').addEventListener('click',()=>{
   routeEditEnabled=!routeEditEnabled;
