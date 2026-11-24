@@ -125,7 +125,7 @@ function setView(showMap){
   $('#driverView').style.display='none';
   $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
-  $('#routeEditor').style.display=showMap?'flex':'none';
+  $('#routeEditor').style.display=showMap?'block':'none';
   canvas.style.display=showMap?'none':'block';
   $('#mapMessage').style.display=showMap?'block':'none';
   $('#showMap').classList.toggle('active',showMap);
