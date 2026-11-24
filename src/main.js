@@ -15,7 +15,7 @@ $('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRE
 const MAPS_KEY='ds3243.googlemaps.key.v1';
 let googleMap=null, mapsLoaded=false, mapVisible=false;
 const ROUTE1_POINTS_KEY='ds3243.route1.controlPoints.v1';
-let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null;
+let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null, routeCar=null;
 let routePath=[], routeCar=null, routePathMeters=[], routeProgressMeters=0, mapDriving=false;
 const ROUTE1_PATH_KEY='ds3243.route1.roadPath.v1';
 function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
@@ -24,7 +24,11 @@ function prepareRoutePath(path){
   routePathMeters=[0];for(let i=1;i<routePath.length;i++)routePathMeters[i]=routePathMeters[i-1]+haversine(routePath[i-1],routePath[i]);
   routeProgressMeters=0;localStorage.setItem(ROUTE1_PATH_KEY,JSON.stringify(routePath));
   if(routeCar)routeCar.setMap(null);
-  if(routePath.length){routeCar=new google.maps.Marker({map:googleMap,position:routePath[0],title:'Навчальний автомобіль',zIndex:1000,label:{text:'🚗',fontSize:'22px'}});}
+  if(routeLine)routeLine.setMap(null);
+  if(routePath.length){
+    routeLine=new google.maps.Polyline({map:googleMap,path:routePath,strokeColor:'#075de5',strokeOpacity:.95,strokeWeight:7,zIndex:10});
+    routeCar=new google.maps.Marker({map:googleMap,position:routePath[0],title:'Навчальний автомобіль',zIndex:1000,label:{text:'🚗',fontSize:'22px'}});
+  }
 }
 function positionOnRoute(meters){
   if(!routePath.length)return null;
@@ -42,7 +46,7 @@ function advanceMapCar(dt){
   if(routeProgressMeters>=total){mapDriving=false;started=false;speed=0;say('Маршрут завершено','Ти доїхав до кінцевої точки прокладеної траєкторії.');}
 }
 function renderRoutePointCount(){const el=$('#routePointCount');if(el)el.textContent='Точок: '+routePoints.length;}
-function clearRouteMarkers(){routePointMarkers.forEach(m=>m.setMap(null));routePointMarkers=[];if(routeLine){routeLine.setMap(null);routeLine=null;}}
+function clearRouteMarkers(){routePointMarkers.forEach(m=>m.setMap(null));routePointMarkers=[];}
 function drawRouteMarkers(){
   if(!googleMap||!google.maps?.Marker)return;
   clearRouteMarkers();
@@ -77,8 +81,8 @@ async function loadGoogleMap(apiKey){
     const {Map}=await google.maps.importLibrary('maps');
     if(!googleMap){
       googleMap=new Map($('#googleMap'),{
-        center:{lat:50.51097,lng:30.79106},
-        zoom:14,
+        center:{lat:50.503529,lng:30.841481},
+        zoom:15,
         mapTypeControl:true,
         streetViewControl:true,
         fullscreenControl:true,
@@ -120,6 +124,18 @@ function setView(showMap){
   }
 }
 $('#showMap').addEventListener('click',()=>setView(true));
+$('#setRouteStart').addEventListener('click',async()=>{
+  try{
+    const {Geocoder}=await google.maps.importLibrary('geocoding');
+    const geocoder=new Geocoder();
+    const result=await geocoder.geocode({address:'ТСЦ МВС №3243, вул. Броварської сотні, 4А, Бровари, Україна'});
+    if(!result.results?.length){setRouteEditStatus('Не вдалося знайти адресу ТСЦ 3243.');return;}
+    const p=result.results[0].geometry.location;
+    routePoints=[{lat:p.lat(),lng:p.lng()}];saveRoutePoints();drawRouteMarkers();
+    googleMap.setCenter(p);googleMap.setZoom(17);
+    setRouteEditStatus('Стартову точку ТСЦ 3243 встановлено. Увімкни додавання точок і клацай по карті за напрямком стрілок на офіційній схемі.');
+  }catch(e){setRouteEditStatus('Не вдалося визначити координати ТСЦ. Перевір Geocoding API або встанови стартову точку вручну.');}
+});
 $('#editRoutePoints').addEventListener('click',()=>{
   routeEditEnabled=!routeEditEnabled;
   $('#editRoutePoints').classList.toggle('active',routeEditEnabled);
@@ -141,7 +157,7 @@ $('#buildRoute').addEventListener('click',async()=>{
     if(!routes?.length){setRouteEditStatus('Google не знайшов дорожню траєкторію для цих точок. Перевір їх розташування.');return;}
     if(routeLine)routeLine.setMap(null);
     const lines=routes[0].createPolylines({polylineOptions:{strokeColor:'#075de5',strokeOpacity:0.95,strokeWeight:7}});
-    lines.forEach(line=>line.setMap(googleMap));routeLine=lines[0];
+    lines.forEach(line=>line.setMap(null));
     if(routes[0].path?.length){const bounds=new google.maps.LatLngBounds();routes[0].path.forEach(p=>bounds.extend(p));googleMap.fitBounds(bounds);}
     const km=(routes[0].distanceMeters/1000).toFixed(2);
     prepareRoutePath(routes[0].path||[]);
