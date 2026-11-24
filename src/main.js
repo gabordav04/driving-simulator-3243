@@ -11,6 +11,69 @@ loadProfile();renderProgress();
 $('#saveProfile').addEventListener('click',()=>{const fullName=$('#fullName').value.trim(),phone=$('#phone').value.trim();if(!fullName){$('#profileStatus').textContent='Введіть ПІБ.';return;}if(phone&&!/^[+()\\d\\s-]{7,20}$/.test(phone)){$('#profileStatus').textContent='Перевірте формат номера телефону.';return;}localStorage.setItem(PROFILE_KEY,JSON.stringify({fullName,phone}));$('#profileStatus').textContent='Профіль збережено в цьому браузері.';});
 $('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRESS_KEY);renderProgress();});
 
+// Google Maps: the browser key is stored locally and is never committed to GitHub.
+const MAPS_KEY='ds3243.googlemaps.key.v1';
+let googleMap=null, mapsLoaded=false, mapVisible=false;
+const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
+mapInput.value=localStorage.getItem(MAPS_KEY)||'';
+function setMapMessage(message){$('#mapMessage').textContent=message;}
+async function loadGoogleMap(apiKey){
+  if(!apiKey){setMapMessage('Спочатку встав API-ключ Google Maps у лівій панелі.');return;}
+  if(!mapsLoaded){
+    setMapMessage('Завантажуємо Google Maps…');
+    const script=document.createElement('script');
+    script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&v=weekly&language=uk&region=UA';
+    script.async=true;
+    script.onerror=()=>setMapMessage('Не вдалося завантажити Google Maps. Перевір ключ, обмеження Websites та Maps JavaScript API.');
+    document.head.appendChild(script);
+    try{
+      await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(new Error('Maps script failed'));});
+      mapsLoaded=true;
+    }catch{return;}
+  }
+  try{
+    const {Map}=await google.maps.importLibrary('maps');
+    if(!googleMap){
+      googleMap=new Map($('#googleMap'),{
+        center:{lat:50.51097,lng:30.79106},
+        zoom:14,
+        mapTypeControl:true,
+        streetViewControl:true,
+        fullscreenControl:true,
+        clickableIcons:true
+      });
+      new google.maps.Marker({map:googleMap,position:{lat:50.51097,lng:30.79106},title:'Бровари'});
+    }
+    setMapMessage('Google Maps завантажено. Центр карти — Бровари. Маршрути ігрового автомобіля ще не прив’язані до дорожньої геометрії.');
+    setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
+  }catch(error){
+    setMapMessage('Помилка ініціалізації карти. Перевір налаштування ключа в Google Cloud.');
+  }
+}
+$('#saveMapsKey').addEventListener('click',()=>{
+  const value=mapInput.value.trim();
+  if(!value){mapStatus.textContent='Встав API-ключ перед збереженням.';return;}
+  localStorage.setItem(MAPS_KEY,value);
+  mapStatus.textContent='Ключ збережено локально в цьому браузері.';
+  loadGoogleMap(value);
+});
+function setView(showMap){
+  mapVisible=showMap;
+  $('#googleMap').style.display=showMap?'block':'none';
+  canvas.style.display=showMap?'none':'block';
+  $('#mapMessage').style.display=showMap?'block':'none';
+  $('#showMap').classList.toggle('active',showMap);
+  $('#showSim').classList.toggle('active',!showMap);
+  if(showMap){
+    const key=localStorage.getItem(MAPS_KEY);
+    if(key)loadGoogleMap(key);
+    else setMapMessage('Введи API-ключ Google Maps у лівій панелі та натисни «Зберегти ключ».');
+  }
+}
+$('#showMap').addEventListener('click',()=>setView(true));
+$('#showSim').addEventListener('click',()=>setView(false));
+
+
 const canvas=$('#scene'),ctx=canvas.getContext('2d');
 let mode='learn',gearbox='manual',gear='1',camera='cockpit',started=false,speed=0,elapsed=0,distance=0,steering=0,signal='—',lights=false,keys={},last=performance.now(),turnClock=0,lessonShown=false;
 const scenarios={
