@@ -189,6 +189,7 @@ $('#saveMapsKey').addEventListener('click',()=>{
 function setView(showMap){
   mapVisible=showMap;driverVisible=false;
   $('#driverView').style.display='none';
+  $('.sim').classList.remove('view-clean');
   $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
   $('#routeEditor').style.display='none';
@@ -196,7 +197,7 @@ function setView(showMap){
   $('#mapMessage').style.display=showMap?'block':'none';
   $('#showMap').classList.toggle('active',showMap);
   $('#showDriver').classList.remove('active');
-  $('#showSim').classList.toggle('active',!showMap);
+  $('.sim').classList.remove('view-clean');
   if(showMap){
     const key=localStorage.getItem(MAPS_KEY);
     if(key)loadGoogleMap(key);
@@ -208,8 +209,8 @@ async function openDriverView(){
   driverVisible=true;mapVisible=false;
   $('#googleMap').style.display='none';$('#routeEditor').style.display='none';
   $('#mapMessage').style.display='none';canvas.style.display='none';
-  $('#driverView').style.display='block';$('.sim').classList.remove('map-active');
-  $('#showMap').classList.remove('active');$('#showSim').classList.remove('active');$('#showDriver').classList.add('active');
+  $('#driverView').style.display='block';$('.sim').classList.remove('map-active');$('.sim').classList.add('view-clean');
+  $('#showMap').classList.remove('active');$('#showDriver').classList.add('active');
   const key=localStorage.getItem(MAPS_KEY);
   if(!key){$('#streetMessage').textContent='Спочатку збережи API-ключ Google Maps у налаштуваннях.';return;}
   const ready=await loadGoogleMap(key);
@@ -278,6 +279,7 @@ function routeHeadingAt(meters){
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
 $('#showDriver').addEventListener('click',openDriverView);
+setView(true);
 $('#setRouteStart').addEventListener('click',()=>{
   if(!googleMap){setRouteEditStatus('Спочатку завантаж карту Google Maps.');return;}
   const center=googleMap.getCenter();
@@ -314,7 +316,6 @@ $('#buildRoute').addEventListener('click',async()=>{
     setRouteEditStatus('Дорожню траєкторію побудовано ('+km+' км). Натисни «Почати заїзд», щоб рухати автомобіль по цій лінії. Перевір відповідність офіційній схемі №1.');
   }catch(err){setRouteEditStatus('Помилка побудови маршруту. Перевір, чи увімкнено Routes API для цього ключа.');}
 });
-$('#showSim').addEventListener('click',()=>setView(false));
 
 
 const canvas=$('#scene'),ctx=canvas.getContext('2d');
