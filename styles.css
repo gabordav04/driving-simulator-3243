@@ -120,3 +120,12 @@
  #googleMap{top:50px;height:calc(100% - 50px)}
  #driverView{top:50px}
 }
+
+/* Three.js real-time 3D driving view */
+#scene3d{display:none;position:absolute;inset:0;width:100%;height:100%;z-index:1;outline:none}
+.sim:has(#scene3d[style*="block"]) .coach{z-index:4}
+.sim:has(#scene3d[style*="block"]) .hud{z-index:4}
+.sim:has(#scene3d[style*="block"]) .controls{z-index:4}
+.sim:has(#scene3d[style*="block"]) .touch{z-index:5}
+.coach{z-index:4}
+.coachicon{font-size:18px;flex:0 0 30px}
