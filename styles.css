@@ -19,3 +19,49 @@
 
 .routeSchemeLink{font-size:9px;color:#8bd4c0;text-decoration:underline;margin-right:5px}
 .route-editor{max-height:150px;overflow:auto}
+
+/* Mobile-first cleanup */
+.routeimg.no-image{display:none}
+.mobile-fold{border:1px solid #304351;border-radius:10px;background:#0e1923;margin-top:12px;overflow:hidden}
+.mobile-fold>summary{cursor:pointer;list-style:none;padding:12px 14px;font-size:12px;font-weight:700;color:#dce6eb}
+.mobile-fold>summary::-webkit-details-marker{display:none}
+.mobile-fold>summary:after{content:'＋';float:right;color:#8bd4c0}
+.mobile-fold[open]>summary:after{content:'−'}
+.mobile-fold .fold-content{padding:0 12px 12px}
+.mobile-fold .profilebox{margin-top:10px}
+.sim.map-active .controls,.sim.map-active .touch{display:none}
+.sim.map-active .coach{bottom:12px;max-width:calc(100% - 24px)}
+.sim.map-active #googleMap{min-height:0}
+@media(max-width:700px){
+  .top{height:48px;position:sticky;top:0;z-index:20}
+  .shell{padding:8px;gap:8px;min-height:0}
+  .sim{order:-1;height:56vh;min-height:390px;max-height:620px;border-radius:12px}
+  #googleMap{height:100%;min-height:0}
+  .simtoolbar{top:8px;right:8px;padding:3px;gap:3px}
+  .simtoolbar button{font-size:10px;padding:8px 9px}
+  .hud{top:8px;left:8px;gap:10px;padding:7px 9px}
+  .hud b{font-size:15px}
+  .hud small{font-size:7px}
+  .coach{left:8px;right:8px;bottom:8px;padding:9px;max-width:none}
+  .coach p{font-size:10px}
+  .route-editor{top:48px;left:8px;right:8px;max-height:118px;padding:7px;gap:5px}
+  .route-editor b{flex-basis:100%}
+  .route-editor button{font-size:9px;padding:7px 8px}
+  .route-editor small{font-size:8px}
+  .mapmessage{left:8px;right:8px;bottom:8px;font-size:9px}
+  .setup{padding:13px}
+  .setup h1{font-size:19px}
+  .setup>.muted{font-size:11px}
+  .setup>label{margin-top:12px}
+  .setup>.primary,.setup>.secondary{padding:13px;font-size:12px}
+  .side{display:block;padding:12px}
+  .instructor-fold{margin-top:0}
+  .instructor-fold .fold-content{padding:12px}
+  .metric{margin-top:10px}
+  .block{margin-top:13px;padding-top:12px}
+  .profilebox{padding:10px}
+  .settings-fold,.advanced-fold,.route-scheme{margin-top:10px}
+  .route-scheme .routeimg{margin-top:8px}
+  .touch{display:none}
+  footer{font-size:9px;line-height:1.45;padding:8px 14px 16px}
+}
