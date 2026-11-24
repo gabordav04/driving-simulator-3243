@@ -84,3 +84,8 @@
 .pwa-hint{position:sticky;top:0;z-index:1000;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 14px;background:#193142;color:#edf4f6;border-bottom:1px solid #8bd4c0;font-size:12px;line-height:1.4}
 .pwa-hint[hidden]{display:none}
 .pwa-hint button{border:0;background:transparent;color:#8bd4c0;font-size:22px;padding:0 4px}
+
+
+.update-hint{position:sticky;top:0;z-index:1001;display:flex;align-items:center;justify-content:center;gap:12px;padding:9px 14px;background:#153d35;color:#f0fff9;border-bottom:1px solid #8bd4c0;font-size:12px;line-height:1.4}
+.update-hint[hidden]{display:none}
+.update-hint button{background:#8bd4c0;color:#10221e;border:0;padding:8px 13px;font-size:11px}
