@@ -159,8 +159,8 @@ async function loadGoogleMap(apiKey){
     const {Map}=await google.maps.importLibrary('maps');
     if(!googleMap){
       googleMap=new Map($('#googleMap'),{
-        center:{lat:50.503529,lng:30.841481},
-        zoom:15,mapTypeControl:true,streetViewControl:true,fullscreenControl:true,clickableIcons:true
+        center:{lat:50.50336903085713,lng:30.84229163764248},
+        zoom:16,mapTypeControl:true,streetViewControl:true,fullscreenControl:true,clickableIcons:true
       });
     }
     ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
