@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+let THREE=null;
 const $ = (s) => document.querySelector(s);
 if('serviceWorker' in navigator){
  let appRegistration=null,updateReloading=false,latestAppVersion=null;
@@ -225,6 +225,7 @@ $('#saveMapsKey').addEventListener('click',()=>{
 function setView(showMap){
   mapVisible=showMap;driverVisible=false;
   $('#driverView').style.display='none';
+  threeCanvas.style.display='none';
   $('.sim').classList.remove('view-clean');
   $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
@@ -246,14 +247,15 @@ async function openDriverView(){
   $('#googleMap').style.display='none';$('#routeEditor').style.display='none';
   $('#mapMessage').style.display='none';canvas.style.display='none';
   $('#driverView').style.display='block';$('.sim').classList.remove('map-active');$('.sim').classList.add('view-clean');
+  const show3DFallback=(message)=>{if(threeReady){$('#streetPanorama').style.display='none';threeCanvas.style.display='block';camera='cockpit';$('.sim').classList.remove('view-clean');$('#streetMessage').textContent=message+' Показано локальну 3D-сцену як резервний режим.';}else{$('#streetMessage').textContent=message;}};
   $('#showMap').classList.remove('active');$('#showDriver').classList.add('active');
   const key=localStorage.getItem(MAPS_KEY);
-  if(!key){$('#streetMessage').textContent='Спочатку збережи API-ключ Google Maps у налаштуваннях.';return;}
+  if(!key){show3DFallback('Немає API-ключа Google Maps.');return;}
   const ready=await loadGoogleMap(key);
   if(!ready||!window.google?.maps?.importLibrary){
-    $('#streetMessage').textContent=mapsAuthFailed
-      ?'Google відхилив API-ключ. Перевір його обмеження, Billing та Maps JavaScript API у Google Cloud. Street View використовує той самий ключ.'
-      :'Google Maps не завантажився. Спочатку потрібно відновити доступ до Maps JavaScript API.';
+    show3DFallback(mapsAuthFailed
+      ?'Google відхилив API-ключ. Перевір обмеження ключа та Billing.'
+      :'Google Maps не завантажився.');
     return;
   }
   try{
@@ -294,7 +296,7 @@ async function openDriverView(){
             ?'Перевищено ліміт запитів Street View.'
             :'Google не зміг обробити запит Street View.';
       console.error('Street View lookup failed',{status:lastStatus,error:detail,target,radius:checkedRadius});
-      $('#streetMessage').textContent=explanation+' Статус: '+lastStatus+'. Радіус перевірки: '+checkedRadius+' м.'+(detail&&detail!==lastStatus?' Деталі: '+detail:'');
+      show3DFallback(explanation+' Статус: '+lastStatus+'. Радіус перевірки: '+checkedRadius+' м.');
       return;
     }
     console.info('Street View panorama found',{status:lastStatus,target,panorama:result.data.location.description,position:result.data.location.latLng?.toJSON?.()});
@@ -302,10 +304,11 @@ async function openDriverView(){
     streetPanorama.setPano(result.data.location.pano);
     streetPanorama.setPov({heading:routePath.length?routeHeadingAt(routeProgressMeters):0,pitch:0});
     streetPanorama.setVisible(true);
+    threeCanvas.style.display='none';$('#streetPanorama').style.display='block';
     setTimeout(()=>google.maps.event.trigger(streetPanorama,'resize'),100);
     $('#streetMessage').textContent='Вид з авто · панорама Google Street View. Огляд 360° доступний; рух між панорамами залежить від покриття.';
   }catch(error){
-    $('#streetMessage').textContent='Не вдалося запустити Street View: '+(error?.message||'невідома помилка')+'. Перевір доступ до Maps JavaScript API.';
+    show3DFallback('Не вдалося запустити Street View: '+(error?.message||'невідома помилка')+'.');
   }
 }
 function routeHeadingAt(meters){
@@ -357,8 +360,9 @@ $('#buildRoute').addEventListener('click',async()=>{
 const canvas=$('#scene'),ctx=canvas.getContext('2d');
 const threeCanvas=$('#scene3d');
 let threeRenderer=null,threeScene=null,threeCamera=null,threeCar=null,threeWheels=[],threeRoadGroup=null,threeReady=false,threeLastGuide=0;
-function initThreeSimulator(){
+async function initThreeSimulator(){
  try{
+  THREE=await import('three');
   threeRenderer=new THREE.WebGLRenderer({canvas:threeCanvas,antialias:true,alpha:false,powerPreference:'high-performance'});
   threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
   threeRenderer.setSize(Math.max(1,$('.sim').clientWidth),Math.max(1,$('.sim').clientHeight),false);
@@ -437,7 +441,7 @@ function renderThreeSimulator(){
   threeCamera.position.lerp(new THREE.Vector3(0,4.2,-8.4),.09);
   threeCamera.lookAt(threeCar.position.x*.35,.75,4.8);
  }else{
-  threeCamera.position.lerp(new THREE.Vector3(0,1.55,.42),.14);
+  threeCamera.position.lerp(new THREE.Vector3(0,1.55,1.12),.14);
   threeCamera.lookAt(threeCar.position.x*.35,1.38,22);
  }
  threeRoadGroup.position.z=(distance*1.5)%12;
