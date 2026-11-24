@@ -453,6 +453,18 @@ const scenarios={
  parking:{title:'Зупинка біля узбіччя',text:'Оціни обстановку позаду, подай сигнал, плавно знизь швидкість і зупинись у дозволеному безпечному місці.'}
 };
 function say(title,text){$('#coachTitle').textContent=title;$('#coachText').textContent=text;}
+function updateGuide(now){
+ if(!started||now-threeLastGuide<2200)return;
+ threeLastGuide=now;
+ let advice='Тримай смугу та контролюй швидкість. Дивись далеко вперед і перевіряй дзеркала.';
+ if(signal==='—'&&Math.abs(steering)>.28)advice='Перед поворотом завчасно ввімкни покажчик повороту та перевір дзеркала.';
+ else if(signal!=='—')advice='Покажчик увімкнений. Переконайся, що маневр безпечний, і вимкни його після завершення.';
+ else if(speed>13)advice='Контролюй швидкість і дистанцію. Будь готовий плавно загальмувати.';
+ else if(speed<1)advice='Автомобіль зупинений. Перед початком руху перевір обстановку та дзеркала.';
+ if(lights)advice+=' Світло увімкнене.';
+ $('#coachTitle').textContent='Гід · підказка водієві';
+ $('#coachText').textContent=advice;
+}
 function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));ctx.setTransform(dpr,0,0,dpr,0,0);}
 new ResizeObserver(()=>{resize();resizeThreeSimulator();}).observe($('.sim'));window.addEventListener('resize',()=>{resize();resizeThreeSimulator();});resize();initThreeSimulator();
 function path(points,color){ctx.fillStyle=color;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill();}
@@ -514,6 +526,6 @@ if(driverVisible&&mapDriving&&streetPanorama&&routePathMeters.length&&Math.abs(r
    }
  });
 }
-elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
+elapsed+=dt;turnClock+=dt;updateGuide(now);$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
 requestAnimationFrame(animate);}
 requestAnimationFrame(animate);
