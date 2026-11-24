@@ -91,18 +91,32 @@
 .update-hint button{background:#8bd4c0;color:#10221e;border:0;padding:8px 13px;font-size:11px}
 
 
-/* Map-only interface: hide simulator controls and give the map the full workspace. */
-.setup{display:none!important}
-.shell{display:block;padding:0;min-height:calc(100vh - 66px)}
-.sim{height:calc(100vh - 66px);min-height:0;width:100%;border:0;border-radius:0}
-.simtoolbar{z-index:1000;top:14px;right:14px;gap:8px;padding:6px;background:#101923f2;box-shadow:0 3px 16px #0006}
-.simtoolbar button{font-size:13px;padding:11px 16px;min-height:42px}
+
+/* Keep exam setup and controls; put map-view switcher in its own strip above the map. */
+.setup{display:block!important}
+.shell{display:grid;grid-template-columns:275px minmax(360px,1fr) 260px;gap:12px;padding:12px;min-height:calc(100vh - 100px)}
+.sim{height:auto;min-height:590px;width:auto;border:1px solid #354857;border-radius:14px}
+.simtoolbar{position:absolute;z-index:1000;top:0;left:0;right:0;height:54px;display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 12px;background:#101923f5;border:0;border-bottom:1px solid #536472;border-radius:0}
+.simtoolbar button{font-size:12px;padding:9px 15px;min-height:38px}
+#googleMap{top:54px;left:0;right:0;bottom:0;width:100%;height:calc(100% - 54px);min-height:0}
+#driverView{top:54px;left:0;right:0;bottom:0}
 .sim.map-active .hud,.sim.map-active .coach,.sim.map-active .controls,.sim.map-active .touch,
 .sim.view-clean .hud,.sim.view-clean .coach,.sim.view-clean .controls,.sim.view-clean .touch{display:none!important}
-#googleMap,#driverView{z-index:1}
+@media(max-width:1050px){
+ .shell{grid-template-columns:230px minmax(300px,1fr)}
+ .side{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+ .side>.eyebrow,.side>h2{grid-column:1/-1}
+ .block{margin-top:0}
+}
 @media(max-width:700px){
- .shell{display:block;padding:0;min-height:calc(100dvh - 48px)}
- .sim{height:calc(100dvh - 48px);min-height:0;max-height:none;border-radius:0}
- .simtoolbar{top:10px;right:10px;left:10px;justify-content:flex-end;gap:7px;padding:5px}
- .simtoolbar button{font-size:12px;padding:10px 13px;min-height:40px}
+ .shell{display:flex;flex-direction:column;padding:8px;gap:8px;min-height:0}
+ .sim{order:-1;height:56vh;min-height:390px;max-height:620px;width:100%;border-radius:12px}
+ .setup,.side{display:block}
+ .top{padding:0 12px}
+ .topmeta{display:none}
+ .touch{display:flex}
+ .simtoolbar{top:0;left:0;right:0;height:50px;justify-content:flex-end;padding:5px 8px;gap:6px}
+ .simtoolbar button{font-size:11px;padding:8px 11px;min-height:36px}
+ #googleMap{top:50px;height:calc(100% - 50px)}
+ #driverView{top:50px}
 }
