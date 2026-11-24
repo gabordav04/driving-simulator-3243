@@ -1,4 +1,4 @@
-const CACHE_NAME='ds3243-shell-v4';
+const CACHE_NAME='ds3243-shell-v5';
 const APP_SHELL=['/','/index.html','/styles.css','/src/main.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
