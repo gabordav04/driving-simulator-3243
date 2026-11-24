@@ -1,4 +1,4 @@
-const CACHE_NAME='ds3243-shell-v3';
+const CACHE_NAME='ds3243-shell-v4';
 const APP_SHELL=['/','/index.html','/styles.css','/src/main.js','/manifest.webmanifest'];
 self.addEventListener('install',event=>{
   event.waitUntil((async()=>{
@@ -33,8 +33,13 @@ self.addEventListener('fetch',event=>{
     })());
     return;
   }
+  const networkFirst=/\\.(?:js|css|json)$/.test(url.pathname);
   event.respondWith((async()=>{
     const cached=await caches.match(request);
+    if(networkFirst){
+      try{const response=await fetch(request,{cache:'no-store'});if(response&&response.ok){const cache=await caches.open(CACHE_NAME);await cache.put(request,response.clone());}return response;}
+      catch{return cached||Response.error();}
+    }
     const update=fetch(request).then(async response=>{
       if(response&&response.ok){const cache=await caches.open(CACHE_NAME);await cache.put(request,response.clone());}
       return response;
