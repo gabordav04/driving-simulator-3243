@@ -74,18 +74,27 @@ function addRoutePoint(latLng){
 const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
 mapInput.value=localStorage.getItem(MAPS_KEY)||'';
 function setMapMessage(message){$('#mapMessage').textContent=message;}
+let mapsAuthFailed=false;
+window.gm_authFailure=function(){
+  mapsAuthFailed=true;
+  setMapMessage('Google відхилив API-ключ. Перевір Billing, Maps JavaScript API та HTTP referrer: https://driving-simulator-3243.onrender.com/* у Google Cloud.');
+  mapStatus.textContent='Google не авторизував ключ. Відкрий Google Cloud → APIs & Services → Credentials.';
+};
 async function loadGoogleMap(apiKey){
   if(!apiKey){setMapMessage('Спочатку встав API-ключ Google Maps у лівій панелі.');return;}
   if(!mapsLoaded){
+    mapsAuthFailed=false;
     setMapMessage('Завантажуємо Google Maps…');
     const script=document.createElement('script');
     script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&v=weekly&language=uk&region=UA';
     script.async=true;
-    script.onerror=()=>setMapMessage('Не вдалося завантажити Google Maps. Перевір ключ, обмеження Websites та Maps JavaScript API.');
+    script.onerror=()=>setMapMessage('Не вдалося завантажити скрипт Google Maps. Перевір інтернет, API key, Billing і доступ до Maps JavaScript API.');
     document.head.appendChild(script);
     try{
       await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(new Error('Maps script failed'));});
       mapsLoaded=true;
+      await new Promise(resolve=>setTimeout(resolve,700));
+      if(mapsAuthFailed)return;
     }catch{return;}
   }
   try{
@@ -100,7 +109,7 @@ async function loadGoogleMap(apiKey){
         clickableIcons:true
       });
     }
-    setMapMessage('Карта готова. Обери маршрут і додай контрольні точки, щоб побудувати його дорожню траєкторію.');
+    if(!mapsAuthFailed)setMapMessage('Карта готова. Обери маршрут і додай контрольні точки, щоб побудувати його дорожню траєкторію.');
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
     try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1)prepareRoutePath(savedPath);}catch{}
@@ -110,7 +119,7 @@ async function loadGoogleMap(apiKey){
       googleMap.__routeEditorBound=true;
     }
   }catch(error){
-    setMapMessage('Помилка ініціалізації карти. Перевір налаштування ключа в Google Cloud.');
+    setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'. Перевір дозволені API та Billing у Google Cloud.');
   }
 }
 $('#saveMapsKey').addEventListener('click',()=>{
