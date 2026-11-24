@@ -79,35 +79,41 @@ window.gm_authFailure=function(){
   mapStatus.textContent='Google не авторизував ключ. Відкрий Google Cloud → APIs & Services → Credentials.';
 };
 async function loadGoogleMap(apiKey){
-  if(!apiKey){setMapMessage('Спочатку встав API-ключ Google Maps у лівій панелі.');return;}
-  if(!mapsLoaded){
+  if(!apiKey){setMapMessage('Спочатку збережи Google Maps API-ключ у налаштуваннях.');return false;}
+  if(!window.google?.maps?.importLibrary){
     mapsAuthFailed=false;
     setMapMessage('Завантажуємо Google Maps…');
-    const script=document.createElement('script');
-    script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&v=weekly&language=uk&region=UA';
-    script.async=true;
-    script.onerror=()=>setMapMessage('Не вдалося завантажити скрипт Google Maps. Перевір інтернет, API key, Billing і доступ до Maps JavaScript API.');
-    document.head.appendChild(script);
+    let script=document.querySelector('script[data-ds-google-maps]');
+    if(!script){
+      script=document.createElement('script');
+      script.dataset.dsGoogleMaps='1';
+      script.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(apiKey)+'&v=weekly&language=uk&region=UA';
+      script.async=true;
+      script.onerror=()=>setMapMessage('Не вдалося завантажити Google Maps. Перевір інтернет і API-ключ.');
+      document.head.appendChild(script);
+    }
     try{
-      await new Promise((resolve,reject)=>{script.onload=resolve;script.onerror=()=>reject(new Error('Maps script failed'));});
+      await new Promise((resolve,reject)=>{
+        if(window.google?.maps?.importLibrary){resolve();return;}
+        script.addEventListener('load',resolve,{once:true});
+        script.addEventListener('error',()=>reject(new Error('Maps script failed')),{once:true});
+      });
       mapsLoaded=true;
-      await new Promise(resolve=>setTimeout(resolve,700));
-      if(mapsAuthFailed)return;
-    }catch{return;}
-  }
+      await new Promise(resolve=>setTimeout(resolve,350));
+    }catch(error){
+      setMapMessage('Google Maps не завантажився: '+(error?.message||'перевір API-ключ та доступ до Maps JavaScript API.'));
+      return false;
+    }
+  }else mapsLoaded=true;
+  if(mapsAuthFailed)return false;
   try{
     const {Map}=await google.maps.importLibrary('maps');
     if(!googleMap){
       googleMap=new Map($('#googleMap'),{
         center:{lat:50.503529,lng:30.841481},
-        zoom:15,
-        mapTypeControl:true,
-        streetViewControl:true,
-        fullscreenControl:true,
-        clickableIcons:true
+        zoom:15,mapTypeControl:true,streetViewControl:true,fullscreenControl:true,clickableIcons:true
       });
     }
-    if(!mapsAuthFailed)setMapMessage('Карта готова. Обери маршрут і додай контрольні точки, щоб побудувати його дорожню траєкторію.');
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
     try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1)prepareRoutePath(savedPath);}catch{}
@@ -116,8 +122,11 @@ async function loadGoogleMap(apiKey){
       googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
       googleMap.__routeEditorBound=true;
     }
+    if(!mapsAuthFailed)setMapMessage('Карта готова. Обери маршрут і додай контрольні точки, щоб побудувати його дорожню траєкторію.');
+    return !mapsAuthFailed;
   }catch(error){
-    setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'. Перевір дозволені API та Billing у Google Cloud.');
+    setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'.');
+    return false;
   }
 }
 $('#saveMapsKey').addEventListener('click',()=>{
@@ -152,21 +161,50 @@ async function openDriverView(){
   $('#driverView').style.display='block';$('.sim').classList.remove('map-active');
   $('#showMap').classList.remove('active');$('#showSim').classList.remove('active');$('#showDriver').classList.add('active');
   const key=localStorage.getItem(MAPS_KEY);
-  if(!key){$('#streetMessage').textContent='Спочатку збережи Google Maps API-ключ у налаштуваннях.';return;}
-  if(!mapsLoaded){await loadGoogleMap(key);}
+  if(!key){$('#streetMessage').textContent='Спочатку збережи API-ключ Google Maps у налаштуваннях.';return;}
+  const ready=await loadGoogleMap(key);
+  if(!ready||!window.google?.maps?.importLibrary){
+    $('#streetMessage').textContent=mapsAuthFailed
+      ?'Google відхилив API-ключ. Перевір його обмеження, Billing та Maps JavaScript API у Google Cloud. Street View використовує той самий ключ.'
+      :'Google Maps не завантажився. Спочатку потрібно відновити доступ до Maps JavaScript API.';
+    return;
+  }
   try{
-    const [{StreetViewPanorama,StreetViewService}]=await Promise.all([google.maps.importLibrary('streetView')]);
-    if(!streetPanorama)streetPanorama=new StreetViewPanorama($('#streetPanorama'),{visible:true, pov:{heading:0,pitch:0},addressControl:true,fullscreenControl:true,linksControl:true,panControl:true,zoomControl:true,motionTracking:false});
+    const {StreetViewPanorama,StreetViewService}=await google.maps.importLibrary('streetView');
+    if(!streetPanorama){
+      streetPanorama=new StreetViewPanorama($('#streetPanorama'),{
+        visible:false,pov:{heading:0,pitch:0},addressControl:true,fullscreenControl:true,
+        linksControl:true,panControl:true,zoomControl:true,motionTracking:false
+      });
+      streetPanorama.addListener('status_changed',()=>{
+        if(streetPanorama.getStatus?.()!=='OK')$('#streetMessage').textContent='Панорама не завантажилась. Перевір доступність Street View у цій місцевості.';
+      });
+    }
     if(!streetService)streetService=new StreetViewService();
-    const target=routePath.length?positionOnRoute(routeProgressMeters):googleMap?.getCenter()?.toJSON();
-    if(!target){$('#streetMessage').textContent='Спочатку відкрий карту або побудуй маршрут, щоб визначити місце для панорами.';return;}
+    const target=routePath.length?positionOnRoute(routeProgressMeters):(googleMap?.getCenter()?.toJSON()||{lat:50.503529,lng:30.841481});
     $('#streetMessage').textContent='Шукаю найближчу панораму Street View…';
-    const {data}=await streetService.getPanorama({location:target,radius:80,preference:'NEAREST'});
-    streetPanorama.setPano(data.location.pano);
-    streetPanorama.setPov({heading:routeHeadingAt(routeProgressMeters),pitch:0});
+    let result=null,lastError=null;
+    for(const radius of [80,250,1000]){
+      try{
+        result=await streetService.getPanorama({location:target,radius,preference:'NEAREST'});
+        if(result?.data?.location?.pano)break;
+      }catch(error){lastError=error;}
+    }
+    if(!result?.data?.location?.pano){
+      $('#streetMessage').textContent=lastError
+        ?'Помилка запиту Street View. Перевір, чи Google дозволяє Maps JavaScript API для цього ключа.'
+        :'Поруч не знайдено панорам Street View навіть у радіусі 1 км. Спробуй іншу ділянку маршруту.';
+      return;
+    }
+    streetPanorama.setPosition(result.data.location.latLng||target);
+    streetPanorama.setPano(result.data.location.pano);
+    streetPanorama.setPov({heading:routePath.length?routeHeadingAt(routeProgressMeters):0,pitch:0});
     streetPanorama.setVisible(true);
-    $('#streetMessage').textContent='Вид з дороги. Панорами доступні лише в окремих місцях; переміщення між ними залежить від покриття Google Street View.';
-  }catch(e){$('#streetMessage').textContent='У цій точці панорама Street View не знайдена. Спробуй іншу точку на дорозі або перевір покриття.';}
+    setTimeout(()=>google.maps.event.trigger(streetPanorama,'resize'),100);
+    $('#streetMessage').textContent='Вид з авто · панорама Google Street View. Огляд 360° доступний; рух між панорамами залежить від покриття.';
+  }catch(error){
+    $('#streetMessage').textContent='Не вдалося запустити Street View: '+(error?.message||'невідома помилка')+'. Перевір доступ до Maps JavaScript API.';
+  }
 }
 function routeHeadingAt(meters){
   const a=positionOnRoute(meters),b=positionOnRoute(Math.min((routePathMeters.at(-1)||0),meters+12));
