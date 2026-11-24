@@ -213,7 +213,8 @@ async function loadGoogleMap(apiKey){
         keyboardShortcuts:true
       });
     }
-    googleMap.setOptions({gestureHandling:'greedy',scrollwheel:true,zoomControl:true,mapTypeControl:true});
+    googleMap.setOptions({gestureHandling:'greedy',scrollwheel:true,zoomControl:false,mapTypeControl:false,disableDoubleClickZoom:false,keyboardShortcuts:true});
+    updateMapLayerButtons();
     googleMap.addListener('maptypeid_changed',()=>{const type=googleMap.getMapTypeId();setMapMessage(type==='satellite'||type==='hybrid'?'Супутниковий режим активний. Масштабування — двома пальцями або кнопками +/−, переміщення — перетягуванням карти.':'Звичайна карта активна. Масштабування — двома пальцями або кнопками +/−, переміщення — перетягуванням карти.');});
     ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
@@ -258,6 +259,22 @@ function setView(showMap){
   }
 }
 $('#showMap').addEventListener('click',()=>setView(true));
+function updateMapLayerButtons(){
+ const type=googleMap?.getMapTypeId?.()||'roadmap';
+ $('#mapRoad')?.classList.toggle('active',type==='roadmap');
+ $('#mapSatellite')?.classList.toggle('active',type==='satellite'||type==='hybrid');
+}
+function setMapLayer(type){
+ if(!googleMap){setMapMessage('Спочатку дочекайся завантаження карти.');return;}
+ googleMap.setMapTypeId(type);
+ updateMapLayerButtons();
+ setMapMessage(type==='roadmap'?'Звичайна карта активна.':'Супутниковий режим активний.');
+}
+$('#mapRoad')?.addEventListener('click',()=>setMapLayer('roadmap'));
+$('#mapSatellite')?.addEventListener('click',()=>setMapLayer('hybrid'));
+$('#mapZoomIn')?.addEventListener('click',()=>{if(googleMap)googleMap.setZoom(Math.min(21,(googleMap.getZoom()||17)+1));});
+$('#mapZoomOut')?.addEventListener('click',()=>{if(googleMap)googleMap.setZoom(Math.max(12,(googleMap.getZoom()||17)-1));});
+
 async function openDriverView(){
   driverVisible=true;mapVisible=false;
   $('#googleMap').style.display='none';$('#routeEditor').style.display='none';
