@@ -20,7 +20,7 @@ $('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRE
 
 // Google Maps: the browser key is stored locally and is never committed to GitHub.
 const MAPS_KEY='ds3243.googlemaps.key.v1';
-let googleMap=null, mapsLoaded=false, mapVisible=false;
+let googleMap=null, mapsLoaded=false, mapVisible=false, driverVisible=false, streetPanorama=null, streetService=null, lastPanoRequest=0, lastPanoMeters=-100;
 const ROUTE1_POINTS_KEY='ds3243.route1.controlPoints.v1';
 let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null;
 let routePath=[], routeCar=null, routePathMeters=[], routeProgressMeters=0, mapDriving=false;
@@ -117,13 +117,15 @@ $('#saveMapsKey').addEventListener('click',()=>{
   loadGoogleMap(value);
 });
 function setView(showMap){
-  mapVisible=showMap;
+  mapVisible=showMap;driverVisible=false;
+  $('#driverView').style.display='none';
   $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
   $('#routeEditor').style.display=showMap?'flex':'none';
   canvas.style.display=showMap?'none':'block';
   $('#mapMessage').style.display=showMap?'block':'none';
   $('#showMap').classList.toggle('active',showMap);
+  $('#showDriver').classList.remove('active');
   $('#showSim').classList.toggle('active',!showMap);
   if(showMap){
     const key=localStorage.getItem(MAPS_KEY);
@@ -132,6 +134,36 @@ function setView(showMap){
   }
 }
 $('#showMap').addEventListener('click',()=>setView(true));
+async function openDriverView(){
+  driverVisible=true;mapVisible=false;
+  $('#googleMap').style.display='none';$('#routeEditor').style.display='none';
+  $('#mapMessage').style.display='none';canvas.style.display='none';
+  $('#driverView').style.display='block';$('.sim').classList.remove('map-active');
+  $('#showMap').classList.remove('active');$('#showSim').classList.remove('active');$('#showDriver').classList.add('active');
+  const key=localStorage.getItem(MAPS_KEY);
+  if(!key){$('#streetMessage').textContent='Спочатку збережи Google Maps API-ключ у налаштуваннях.';return;}
+  if(!mapsLoaded){await loadGoogleMap(key);}
+  try{
+    const [{StreetViewPanorama,StreetViewService}]=await Promise.all([google.maps.importLibrary('streetView')]);
+    if(!streetPanorama)streetPanorama=new StreetViewPanorama($('#streetPanorama'),{visible:true, pov:{heading:0,pitch:0},addressControl:true,fullscreenControl:true,linksControl:true,panControl:true,zoomControl:true,motionTracking:false});
+    if(!streetService)streetService=new StreetViewService();
+    const target=routePath.length?positionOnRoute(routeProgressMeters):googleMap?.getCenter()?.toJSON();
+    if(!target){$('#streetMessage').textContent='Спочатку відкрий карту або побудуй маршрут, щоб визначити місце для панорами.';return;}
+    $('#streetMessage').textContent='Шукаю найближчу панораму Street View…';
+    const {data}=await streetService.getPanorama({location:target,radius:80,preference:'NEAREST'});
+    streetPanorama.setPano(data.location.pano);
+    streetPanorama.setPov({heading:routeHeadingAt(routeProgressMeters),pitch:0});
+    streetPanorama.setVisible(true);
+    $('#streetMessage').textContent='Вид з дороги. Панорами доступні лише в окремих місцях; переміщення між ними залежить від покриття Google Street View.';
+  }catch(e){$('#streetMessage').textContent='У цій точці панорама Street View не знайдена. Спробуй іншу точку на дорозі або перевір покриття.';}
+}
+function routeHeadingAt(meters){
+  const a=positionOnRoute(meters),b=positionOnRoute(Math.min((routePathMeters.at(-1)||0),meters+12));
+  if(!a||!b)return 0;
+  const rad=x=>x*Math.PI/180,y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat)),x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+$('#showDriver').addEventListener('click',openDriverView);
 $('#setRouteStart').addEventListener('click',()=>{
   if(!googleMap){setRouteEditStatus('Спочатку завантаж карту Google Maps.');return;}
   const center=googleMap.getCenter();
@@ -230,6 +262,15 @@ document.querySelectorAll('[data-gear]').forEach(b=>b.addEventListener('click',(
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key))e.preventDefault();if(k==='q')setSignal('←');if(k==='e')setSignal('→');if(k==='l'){lights=!lights;$('#lights').textContent='Світло: '+(lights?'увімкнено':'вимкнено');updateStatus();}if(k==='c'){camera=camera==='cockpit'?'chase':'cockpit';document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x.dataset.camera===camera));}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 document.querySelectorAll('[data-touch]').forEach(b=>{const k=b.dataset.touch;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));});
-function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible)advanceMapCar(dt);elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();if(localStorage.getItem(MAPS_KEY)){setView(true);}
+function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible)advanceMapCar(dt);
+if(driverVisible&&mapDriving&&streetPanorama&&routePathMeters.length&&Math.abs(routeProgressMeters-lastPanoMeters)>35&&performance.now()-lastPanoRequest>2500){
+ lastPanoMeters=routeProgressMeters;lastPanoRequest=performance.now();
+ const pos=positionOnRoute(routeProgressMeters);
+ streetService.getPanorama({location:pos,radius:35,preference:'NEAREST'}).then(({data})=>{
+   if(driverVisible&&streetPanorama){streetPanorama.setPano(data.location.pano);streetPanorama.setPov({heading:routeHeadingAt(routeProgressMeters),pitch:0});}
+ }).catch(()=>{});
+}
+elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
+if(localStorage.getItem(MAPS_KEY)){setView(true);}
 requestAnimationFrame(animate);}
 requestAnimationFrame(animate);
