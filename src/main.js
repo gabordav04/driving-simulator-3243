@@ -160,7 +160,7 @@ async function loadGoogleMap(apiKey){
     if(!googleMap){
       googleMap=new Map($('#googleMap'),{
         center:{lat:50.50336903085713,lng:30.84229163764248},
-        zoom:17,mapTypeControl:true,streetViewControl:true,fullscreenControl:true,clickableIcons:true
+        zoom:17,mapTypeControl:true,streetViewControl:false,fullscreenControl:true,clickableIcons:true
       });
     }
     ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
@@ -172,7 +172,7 @@ async function loadGoogleMap(apiKey){
       googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
       googleMap.__routeEditorBound=true;
     }
-    if(!mapsAuthFailed)setMapMessage('Карта готова. Екзаменаційний маршрут буде доступний після його географічної прив’язки.');
+    if(!mapsAuthFailed)setMapMessage(routePath.length>1?'Карта готова. Маршрут №1 завантажено збереженими дорожніми координатами.':'Карта готова. Маршрут №1 ще не прив’язаний до дорожніх координат. Заїзд не запускатиметься, доки маршрут не буде коректно оцифрований.');
     return !mapsAuthFailed;
   }catch(error){
     setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'.');
