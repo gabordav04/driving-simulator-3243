@@ -1,8 +1,19 @@
 const $ = (s) => document.querySelector(s);
 if('serviceWorker' in navigator){
- let appRegistration=null,updateReloading=false;
+ let appRegistration=null,updateReloading=false,latestAppVersion=null;
  const notice=document.querySelector('#appUpdateNotice');
  const showUpdate=()=>{if(notice)notice.hidden=false;};
+ const checkAppVersion=async()=>{
+  try{
+   const response=await fetch('/version.json?check='+Date.now(),{cache:'no-store'});
+   if(!response.ok)return;
+   const data=await response.json();latestAppVersion=String(data.version||'');
+   if(!latestAppVersion)return;
+   const saved=localStorage.getItem('ds3243.appVersion');
+   if(!saved)localStorage.setItem('ds3243.appVersion',latestAppVersion);
+   else if(saved!==latestAppVersion)showUpdate();
+  }catch(error){console.warn('App version check failed',error);}
+ };
  window.addEventListener('load',async()=>{
   try{
    appRegistration=await navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'});
@@ -14,19 +25,21 @@ if('serviceWorker' in navigator){
     });
    });
    appRegistration.update().catch(()=>{});
+   await checkAppVersion();
   }catch(error){console.warn('PWA update check failed',error);}
  });
  document.querySelector('#applyAppUpdate')?.addEventListener('click',()=>{
+  if(latestAppVersion)localStorage.setItem('ds3243.appVersion',latestAppVersion);
   const waiting=appRegistration?.waiting;
   if(waiting){waiting.postMessage('SKIP_WAITING');}
-  else{appRegistration?.update().catch(()=>{});showUpdate();}
+  else{window.location.reload();}
  });
  navigator.serviceWorker.addEventListener('controllerchange',()=>{
   if(updateReloading)return;
   updateReloading=true;
   window.location.reload();
  });
- const checkForAppUpdate=()=>{if(document.visibilityState==='visible')appRegistration?.update().catch(()=>{});};
+ const checkForAppUpdate=()=>{if(document.visibilityState==='visible'){appRegistration?.update().catch(()=>{});checkAppVersion();}};
  document.addEventListener('visibilitychange',checkForAppUpdate);
  window.addEventListener('pageshow',checkForAppUpdate);
 }
