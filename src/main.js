@@ -164,9 +164,12 @@ function recordGoogleDiag(kind,message){
  }
 }
 const originalConsoleError=console.error.bind(console),originalConsoleWarn=console.warn.bind(console);
-console.error=(...args)=>{recordGoogleDiag('console.error',args.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' '));originalConsoleError(...args);};
+console.error=(...args)=>{recordGoogleDiag('console.error',args.map(x=>{try{return typeof x==='string'?x:JSON.stringify(x);}catch{return String(x);}}).join(' '));originalConsoleError(...args);};
 console.warn=(...args)=>{recordGoogleDiag('console.warn',args.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' '));originalConsoleWarn(...args);};
 window.addEventListener('error',e=>recordGoogleDiag('window.error',(e.message||'unknown')+' '+(e.filename||'')+':'+(e.lineno||'')));
+window.addEventListener('error',e=>{
+ if(e.target&&e.target.tagName==='SCRIPT'&&/googleapis|gstatic/i.test(e.target.src||''))recordGoogleDiag('Google script resource error',(e.target.src||'').split('?')[0]);
+},true);
 window.addEventListener('unhandledrejection',e=>recordGoogleDiag('unhandledrejection',e.reason?.message||e.reason||'unknown'));
 function buildGoogleDiagReport(){
  const key=localStorage.getItem(MAPS_KEY)||'';
@@ -223,7 +226,7 @@ async function loadGoogleMap(apiKey){
         window.__dsMapsLoadPromise=new Promise((resolve,reject)=>{
           const timeout=setTimeout(()=>reject(new Error('Час очікування Google Maps вичерпано')),15000);
           const finish=()=>{clearTimeout(timeout);resolve();};
-          const fail=()=>{clearTimeout(timeout);reject(new Error('Не вдалося завантажити скрипт Google Maps'));};
+          const fail=()=>{clearTimeout(timeout);recordGoogleDiag('Google Maps script load','browser emitted script error');reject(new Error('Не вдалося завантажити скрипт Google Maps'));};
           if(window.google?.maps?.importLibrary){finish();return;}
           if(!script){
             script=document.createElement('script');
