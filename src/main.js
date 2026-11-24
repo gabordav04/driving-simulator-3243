@@ -1,5 +1,35 @@
 const $ = (s) => document.querySelector(s);
-if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
+if('serviceWorker' in navigator){
+ let appRegistration=null,updateReloading=false;
+ const notice=document.querySelector('#appUpdateNotice');
+ const showUpdate=()=>{if(notice)notice.hidden=false;};
+ window.addEventListener('load',async()=>{
+  try{
+   appRegistration=await navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'});
+   if(appRegistration.waiting&&navigator.serviceWorker.controller)showUpdate();
+   appRegistration.addEventListener('updatefound',()=>{
+    const worker=appRegistration.installing;
+    worker?.addEventListener('statechange',()=>{
+     if(worker.state==='installed'&&navigator.serviceWorker.controller)showUpdate();
+    });
+   });
+   appRegistration.update().catch(()=>{});
+  }catch(error){console.warn('PWA update check failed',error);}
+ });
+ document.querySelector('#applyAppUpdate')?.addEventListener('click',()=>{
+  const waiting=appRegistration?.waiting;
+  if(waiting){waiting.postMessage('SKIP_WAITING');}
+  else{appRegistration?.update().catch(()=>{});showUpdate();}
+ });
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{
+  if(updateReloading)return;
+  updateReloading=true;
+  window.location.reload();
+ });
+ const checkForAppUpdate=()=>{if(document.visibilityState==='visible')appRegistration?.update().catch(()=>{});};
+ document.addEventListener('visibilitychange',checkForAppUpdate);
+ window.addEventListener('pageshow',checkForAppUpdate);
+}
 const pwaHint=$('#pwaInstallHint');
 if(pwaHint && !localStorage.getItem('ds3243.pwaHint.dismissed') && /iPhone|iPad|iPod/i.test(navigator.userAgent) && !window.matchMedia('(display-mode: standalone)').matches && !navigator.standalone){pwaHint.hidden=false;}
 $('#dismissPwaHint')?.addEventListener('click',()=>{localStorage.setItem('ds3243.pwaHint.dismissed','1');pwaHint.hidden=true;});
