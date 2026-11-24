@@ -1,0 +1,13 @@
+{
+  "id": "/",
+  "name": "Driving Simulator 3243",
+  "short_name": "DS 3243",
+  "description": "Екзаменаційний симулятор практичного водіння",
+  "lang": "uk",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b141d",
+  "theme_color": "#101923"
+}
