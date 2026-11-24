@@ -19,7 +19,18 @@ const PROFILE_KEY='ds3243.profile.v1',PROGRESS_KEY='ds3243.progress.v1';
 function loadProfile(){try{const p=JSON.parse(localStorage.getItem(PROFILE_KEY)||'{}');$('#fullName').value=p.fullName||'';$('#phone').value=p.phone||'';}catch{}}
 function renderProgress(){try{const list=JSON.parse(localStorage.getItem(PROGRESS_KEY)||'[]');$('#progressText').textContent=list.length?list.slice(-5).reverse().map(x=>`Маршрут №${x.route} · ${x.mode==='learn'?'навчання':'іспит'} · ${x.duration} хв`).join(' | '):'Поки немає завершених тренувань.';}catch{$('#progressText').textContent='Не вдалося прочитати локальну історію.'}}
 loadProfile();renderProgress();
-$('#saveProfile').addEventListener('click',()=>{const fullName=$('#fullName').value.trim(),phone=$('#phone').value.trim();if(!fullName){$('#profileStatus').textContent='Введіть ПІБ.';return;}if(phone&&!/^[+()\\d\\s-]{7,20}$/.test(phone)){$('#profileStatus').textContent='Перевірте формат номера телефону.';return;}localStorage.setItem(PROFILE_KEY,JSON.stringify({fullName,phone}));$('#profileStatus').textContent='Профіль збережено в цьому браузері.';});
+function saveLocalProfile(showStatus=true){
+  const fullName=$('#fullName').value.trim(),phone=$('#phone').value.trim();
+  if(phone&&!/^[+()\d\s-]{7,20}$/.test(phone)){
+    if(showStatus)$('#profileStatus').textContent='Перевірте формат номера телефону.';
+    return false;
+  }
+  localStorage.setItem(PROFILE_KEY,JSON.stringify({fullName,phone}));
+  if(showStatus)$('#profileStatus').textContent='Профіль автоматично збережено на цьому пристрої.';
+  return true;
+}
+$('#saveProfile').addEventListener('click',()=>saveLocalProfile());
+['fullName','phone'].forEach(id=>$('#'+id).addEventListener('input',()=>saveLocalProfile(false)));
 $('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRESS_KEY);renderProgress();});
 
 // Google Maps: the browser key is stored locally and is never committed to GitHub.
