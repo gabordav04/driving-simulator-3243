@@ -222,19 +222,34 @@ async function openDriverView(){
     if(!streetService)streetService=new StreetViewService();
     const target=routePath.length?positionOnRoute(routeProgressMeters):(googleMap?.getCenter()?.toJSON()||{lat:50.503529,lng:30.841481});
     $('#streetMessage').textContent='Шукаю найближчу панораму Street View…';
-    let result=null,lastError=null;
+    let result=null,lastStatus='UNKNOWN_ERROR',lastError=null,checkedRadius=0;
     for(const radius of [80,250,1000]){
+      checkedRadius=radius;
       try{
-        result=await streetService.getPanorama({location:target,radius,preference:'NEAREST'});
-        if(result?.data?.location?.pano)break;
-      }catch(error){lastError=error;}
+        const response=await new Promise((resolve,reject)=>{
+          streetService.getPanorama({location:target,radius,preference:'NEAREST'},(data,status)=>{
+            if(status==='OK'&&data)resolve({data,status});
+            else resolve({data:null,status:status||'UNKNOWN_ERROR'});
+          });
+        });
+        lastStatus=response.status;
+        if(response.data?.location?.pano){result=response;break;}
+      }catch(error){lastError=error;lastStatus=error?.code||error?.message||'UNKNOWN_ERROR';}
     }
     if(!result?.data?.location?.pano){
-      $('#streetMessage').textContent=lastError
-        ?'Помилка запиту Street View. Перевір, чи Google дозволяє Maps JavaScript API для цього ключа.'
-        :'Поруч не знайдено панорам Street View навіть у радіусі 1 км. Спробуй іншу ділянку маршруту.';
+      const detail=lastError?String(lastError.message||lastError):lastStatus;
+      const explanation=lastStatus==='ZERO_RESULTS'
+        ?'Google не знайшов панорам поблизу цієї точки.'
+        :lastStatus==='REQUEST_DENIED'
+          ?'Google відхилив запит. Перевір дозволи API та Billing у Google Cloud.'
+          :lastStatus==='OVER_QUERY_LIMIT'
+            ?'Перевищено ліміт запитів Street View.'
+            :'Google не зміг обробити запит Street View.';
+      console.error('Street View lookup failed',{status:lastStatus,error:detail,target,radius:checkedRadius});
+      $('#streetMessage').textContent=explanation+' Статус: '+lastStatus+'. Радіус перевірки: '+checkedRadius+' м.'+(detail&&detail!==lastStatus?' Деталі: '+detail:'');
       return;
     }
+    console.info('Street View panorama found',{status:lastStatus,target,panorama:result.data.location.description,position:result.data.location.latLng?.toJSON?.()});
     streetPanorama.setPosition(result.data.location.latLng||target);
     streetPanorama.setPano(result.data.location.pano);
     streetPanorama.setPov({heading:routePath.length?routeHeadingAt(routeProgressMeters):0,pitch:0});
@@ -352,9 +367,14 @@ function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started
 if(driverVisible&&mapDriving&&streetPanorama&&routePathMeters.length&&Math.abs(routeProgressMeters-lastPanoMeters)>35&&performance.now()-lastPanoRequest>2500){
  lastPanoMeters=routeProgressMeters;lastPanoRequest=performance.now();
  const pos=positionOnRoute(routeProgressMeters);
- streetService.getPanorama({location:pos,radius:35,preference:'NEAREST'}).then(({data})=>{
-   if(driverVisible&&streetPanorama){streetPanorama.setPano(data.location.pano);streetPanorama.setPov({heading:routeHeadingAt(routeProgressMeters),pitch:0});}
- }).catch(()=>{});
+ streetService.getPanorama({location:pos,radius:80,preference:'NEAREST'},(data,status)=>{
+   if(status==='OK'&&data?.location?.pano&&driverVisible&&streetPanorama){
+     streetPanorama.setPano(data.location.pano);
+     streetPanorama.setPov({heading:routeHeadingAt(routeProgressMeters),pitch:0});
+   }else if(status&&status!=='ZERO_RESULTS'){
+     console.warn('Street View next-panorama lookup failed',{status,position:pos});
+   }
+ });
 }
 elapsed+=dt;turnClock+=dt;$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
 requestAnimationFrame(animate);}
