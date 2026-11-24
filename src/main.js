@@ -1,3 +1,4 @@
+window.__dsMainStarted=true;
 let THREE=null;
 const $ = (s) => document.querySelector(s);
 if('serviceWorker' in navigator){
@@ -191,6 +192,11 @@ function buildGoogleDiagReport(){
  'Map data-ready: '+(mapEl?.dataset.mapReady||'no'),
  'Map data-error: '+(mapEl?.dataset.mapError||'none'),
  'Auth failure callback: '+(mapsAuthFailed?'FIRED':'not fired'),
+ 'Main module started: '+(window.__dsMainStarted?'YES':'NO'),
+ 'Main module reached map initialization: '+(window.__dsMainReachedMapInit?'YES':'NO'),
+ 'Map view state: '+(mapVisible?'visible':'hidden'),
+ 'Early JavaScript errors (captured before app startup):',
+ ...((window.__dsEarlyErrors&&window.__dsEarlyErrors.length)?window.__dsEarlyErrors:['None captured']),
  'Current map type: '+(googleMap?.getMapTypeId?.()||'not available'),
  'Current zoom: '+(googleMap?.getZoom?.()??'not available'),
  'Captured Google/browser errors:',
@@ -332,7 +338,7 @@ function setView(showMap){
   $('.sim').classList.remove('view-clean');
   if(showMap){
     const key=localStorage.getItem(MAPS_KEY);
-    if(key){requestAnimationFrame(()=>{loadGoogleMap(key);});}
+    if(key){recordGoogleDiag('Map initialization requested','setView(true) called; API loader scheduled');requestAnimationFrame(()=>{loadGoogleMap(key);});}
     else setMapMessage('Введи API-ключ Google Maps у лівій панелі та натисни «Зберегти ключ».');
   }
 }
@@ -430,6 +436,7 @@ function routeHeadingAt(meters){
 }
 $('#showDriver').addEventListener('click',openDriverView);
 setView(true);
+window.__dsMainReachedMapInit=true;
 $('#setRouteStart').addEventListener('click',()=>{
   if(!googleMap){setRouteEditStatus('Спочатку завантаж карту Google Maps.');return;}
   const center=googleMap.getCenter();
