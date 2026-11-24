@@ -42,7 +42,6 @@ async function loadGoogleMap(apiKey){
         fullscreenControl:true,
         clickableIcons:true
       });
-      new google.maps.Marker({map:googleMap,position:{lat:50.51097,lng:30.79106},title:'Бровари'});
     }
     setMapMessage('Google Maps завантажено. Центр карти — Бровари. Маршрути ігрового автомобіля ще не прив’язані до дорожньої геометрії.');
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
