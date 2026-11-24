@@ -14,6 +14,23 @@ $('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRE
 // Google Maps: the browser key is stored locally and is never committed to GitHub.
 const MAPS_KEY='ds3243.googlemaps.key.v1';
 let googleMap=null, mapsLoaded=false, mapVisible=false;
+const ROUTE1_POINTS_KEY='ds3243.route1.controlPoints.v1';
+let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null;
+function renderRoutePointCount(){const el=$('#routePointCount');if(el)el.textContent='Точок: '+routePoints.length;}
+function clearRouteMarkers(){routePointMarkers.forEach(m=>m.setMap(null));routePointMarkers=[];if(routeLine){routeLine.setMap(null);routeLine=null;}}
+function drawRouteMarkers(){
+  if(!googleMap||!google.maps?.Marker)return;
+  clearRouteMarkers();
+  routePoints.forEach((p,i)=>routePointMarkers.push(new google.maps.Marker({map:googleMap,position:p,label:String(i+1),title:'Контрольна точка '+(i+1)})));
+  renderRoutePointCount();
+}
+function setRouteEditStatus(t){$('#routeEditStatus').textContent=t;}
+function saveRoutePoints(){localStorage.setItem(ROUTE1_POINTS_KEY,JSON.stringify(routePoints));renderRoutePointCount();}
+function addRoutePoint(latLng){
+  routePoints.push({lat:latLng.lat(),lng:latLng.lng()});
+  saveRoutePoints();drawRouteMarkers();
+  setRouteEditStatus('Додано точку '+routePoints.length+'. Продовжуй уздовж синьої лінії за червоними стрілками.');
+}
 const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
 mapInput.value=localStorage.getItem(MAPS_KEY)||'';
 function setMapMessage(message){$('#mapMessage').textContent=message;}
@@ -43,8 +60,14 @@ async function loadGoogleMap(apiKey){
         clickableIcons:true
       });
     }
-    setMapMessage('Google Maps завантажено. Центр карти — Бровари. Маршрути ігрового автомобіля ще не прив’язані до дорожньої геометрії.');
+    setMapMessage('Google Maps завантажено. Додай контрольні точки маршруту №1 за схемою, потім побудуй траєкторію по дорогах.');
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
+    try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
+    drawRouteMarkers();
+    if(!googleMap.__routeEditorBound){
+      googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
+      googleMap.__routeEditorBound=true;
+    }
   }catch(error){
     setMapMessage('Помилка ініціалізації карти. Перевір налаштування ключа в Google Cloud.');
   }
@@ -59,6 +82,7 @@ $('#saveMapsKey').addEventListener('click',()=>{
 function setView(showMap){
   mapVisible=showMap;
   $('#googleMap').style.display=showMap?'block':'none';
+  $('#routeEditor').style.display=showMap?'flex':'none';
   canvas.style.display=showMap?'none':'block';
   $('#mapMessage').style.display=showMap?'block':'none';
   $('#showMap').classList.toggle('active',showMap);
@@ -70,6 +94,33 @@ function setView(showMap){
   }
 }
 $('#showMap').addEventListener('click',()=>setView(true));
+$('#editRoutePoints').addEventListener('click',()=>{
+  routeEditEnabled=!routeEditEnabled;
+  $('#editRoutePoints').classList.toggle('active',routeEditEnabled);
+  $('#editRoutePoints').textContent=routeEditEnabled?'✓ Додавання увімкнено':'＋ Додати точки';
+  setRouteEditStatus(routeEditEnabled?'Клацай по карті в порядку проходження маршруту №1, починаючи біля ТСЦ 3243.':'Додавання точок призупинено.');
+});
+$('#undoRoutePoint').addEventListener('click',()=>{routePoints.pop();saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Останню точку скасовано.');});
+$('#clearRoutePoints').addEventListener('click',()=>{routePoints=[];saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Контрольні точки очищено.');});
+$('#buildRoute').addEventListener('click',async()=>{
+  if(routePoints.length<2){setRouteEditStatus('Потрібно щонайменше 2 точки: старт і фініш.');return;}
+  try{
+    const {Route}=await google.maps.importLibrary('routes');
+    setRouteEditStatus('Google Maps прокладає дорогу між контрольними точками…');
+    const req={origin:routePoints[0],destination:routePoints[routePoints.length-1],
+      intermediates:routePoints.slice(1,-1).map(location=>({location, via:true})),
+      travelMode:'DRIVING',optimizeWaypointOrder:false,language:'uk',
+      fields:['path','legs','distanceMeters','durationMillis']};
+    const {routes}=await Route.computeRoutes(req);
+    if(!routes?.length){setRouteEditStatus('Google не знайшов дорожню траєкторію для цих точок. Перевір їх розташування.');return;}
+    if(routeLine)routeLine.setMap(null);
+    const lines=routes[0].createPolylines({polylineOptions:{strokeColor:'#075de5',strokeOpacity:0.95,strokeWeight:7}});
+    lines.forEach(line=>line.setMap(googleMap));routeLine=lines[0];
+    if(routes[0].path?.length){const bounds=new google.maps.LatLngBounds();routes[0].path.forEach(p=>bounds.extend(p));googleMap.fitBounds(bounds);}
+    const km=(routes[0].distanceMeters/1000).toFixed(2);
+    setRouteEditStatus('Побудовано дорожню траєкторію. Довжина: '+km+' км. Перевір, чи збігається вона зі схемою №1. Якщо ні — додай проміжні точки на потрібних поворотах.');
+  }catch(err){setRouteEditStatus('Помилка побудови маршруту. Перевір, чи увімкнено Routes API для цього ключа.');}
+});
 $('#showSim').addEventListener('click',()=>setView(false));
 
 
