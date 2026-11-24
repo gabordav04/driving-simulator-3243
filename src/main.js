@@ -15,10 +15,6 @@ function showRoute(){
  else{img.removeAttribute('src');img.style.display='none';box.classList.add('no-image');$('#routeCaption').textContent='Схему цього маршруту ще не додано.';}
 }
 route.addEventListener('change',showRoute);showRoute();
-const PROGRESS_KEY='ds3243.progress.v1';
-function renderProgress(){try{const list=JSON.parse(localStorage.getItem(PROGRESS_KEY)||'[]');$('#progressText').textContent=list.length?list.slice(-5).reverse().map(x=>`Маршрут №${x.route} · ${x.mode==='learn'?'навчання':'іспит'} · ${x.duration} хв`).join(' | '):'Поки немає завершених тренувань.';}catch{$('#progressText').textContent='Не вдалося прочитати локальну історію.'}}
-renderProgress();
-$('#clearProgress').addEventListener('click',()=>{localStorage.removeItem(PROGRESS_KEY);renderProgress();});
 
 // Google Maps: the browser key is stored locally and is never committed to GitHub.
 const MAPS_KEY='ds3243.googlemaps.key.v1';
@@ -122,7 +118,7 @@ async function loadGoogleMap(apiKey){
       googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
       googleMap.__routeEditorBound=true;
     }
-    if(!mapsAuthFailed)setMapMessage('Карта готова. Обери маршрут і додай контрольні точки, щоб побудувати його дорожню траєкторію.');
+    if(!mapsAuthFailed)setMapMessage('Карта готова. Екзаменаційний маршрут буде доступний після його географічної прив’язки.');
     return !mapsAuthFailed;
   }catch(error){
     setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'.');
@@ -141,7 +137,7 @@ function setView(showMap){
   $('#driverView').style.display='none';
   $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
-  $('#routeEditor').style.display=showMap?'block':'none';
+  $('#routeEditor').style.display='none';
   canvas.style.display=showMap?'none':'block';
   $('#mapMessage').style.display=showMap?'block':'none';
   $('#showMap').classList.toggle('active',showMap);
@@ -253,7 +249,7 @@ $('#showSim').addEventListener('click',()=>setView(false));
 
 
 const canvas=$('#scene'),ctx=canvas.getContext('2d');
-let mode='learn',gearbox='manual',gear='1',camera='cockpit',started=false,speed=0,elapsed=0,distance=0,steering=0,signal='—',lights=false,keys={},last=performance.now(),turnClock=0,lessonShown=false;
+let mode='exam',gearbox='manual',gear='1',camera='cockpit',started=false,speed=0,elapsed=0,distance=0,steering=0,signal='—',lights=false,keys={},last=performance.now(),turnClock=0,lessonShown=false;
 const scenarios={
  intersection:{title:'Наближення до перехрестя',text:'Завчасно зменш швидкість. Оціни знаки пріоритету, оглянь обидва напрямки та переконайся, що маневр безпечний.'},
  pedestrian:{title:'Пішохідний перехід',text:'Зменш швидкість і стеж за тротуарами з обох боків. Будь готовий зупинитися, щоб пропустити пішохода.'},
@@ -261,7 +257,7 @@ const scenarios={
  turn:{title:'Підготовка до повороту',text:'Завчасно увімкни покажчик, перевір дзеркала та сліпу зону, займи належне положення на проїзній частині.'},
  parking:{title:'Зупинка біля узбіччя',text:'Оціни обстановку позаду, подай сигнал, плавно знизь швидкість і зупинись у дозволеному безпечному місці.'}
 };
-function say(title,text){$('#coachTitle').textContent=title;$('#coachText').textContent=text;$('#scenarioHint').textContent=text;}
+function say(title,text){$('#coachTitle').textContent=title;$('#coachText').textContent=text;}
 function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));ctx.setTransform(dpr,0,0,dpr,0,0);}
 new ResizeObserver(resize).observe(canvas);window.addEventListener('resize',resize);resize();
 function path(points,color){ctx.fillStyle=color;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill();}
@@ -295,16 +291,14 @@ function setSignal(value){signal=signal===value?'—':value;$('#leftSignal').cla
 $('#leftSignal').addEventListener('click',()=>setSignal('←'));$('#rightSignal').addEventListener('click',()=>setSignal('→'));
 $('#lights').addEventListener('click',()=>{lights=!lights;$('#lights').textContent='Світло: '+(lights?'увімкнено':'вимкнено');$('#lights').classList.toggle('active',lights);updateStatus();});
 $('#horn').addEventListener('click',()=>say('Звуковий сигнал','Сигнал активовано в симуляції. Використовуй його лише за необхідності.'));
-$('#scenario').addEventListener('change',()=>{const s=scenarios[$('#scenario').value];say('Обрана ситуація: '+s.title,'Натисніть «Почати заїзд» або запитайте інструктора.');});
 $('#start').addEventListener('click',()=>{started=true;
   if(mapVisible||driverVisible){
     if(!routePath.length){started=false;setRouteEditStatus('Спочатку нанеси контрольні точки та натисни «Побудувати дорогу».');return;}
     mapDriving=true;routeProgressMeters=0;speed=0;const p=positionOnRoute(0);if(p&&routeCar)routeCar.setPosition(p);
     setRouteEditStatus('Заїзд розпочато. W/↑ — газ, S/↓ або пробіл — гальмо. Автомобіль рухається по побудованій траєкторії.');
   }
-  updateStatus();const s=scenarios[$('#scenario').value];say(mode==='learn'?s.title:'Екзамен розпочато',mode==='learn'?s.text:'Підказки вимкнено. Дотримуйтеся правил дорожнього руху. Демонстраційна версія ще не має офіційного оцінювання.');});
-$('#reset').addEventListener('click',()=>{if(started&&elapsed>=5){const list=JSON.parse(localStorage.getItem(PROGRESS_KEY)||'[]');list.push({route:Number(route.value),mode,duration:Number((elapsed/60).toFixed(1)),savedAt:new Date().toISOString()});localStorage.setItem(PROGRESS_KEY,JSON.stringify(list.slice(-50)));renderProgress();}speed=0;started=false;mapDriving=false;routeProgressMeters=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';say('Автомобіль скинуто','Натисніть «Почати заїзд», щоб почати знову.');});
-document.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>{mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active',x===b));$('#modeName').textContent=mode==='learn'?'Навчальний режим':'Екзаменаційний режим';$('#assessment').textContent=mode==='learn'?'Навчання з поясненнями':'Без підказок · демонстраційне оцінювання';say(mode==='learn'?'Інструктор готовий':'Екзаменаційний режим',mode==='learn'?'Оберіть навчальну ситуацію та почніть рух.':'Підказки вимкнено. Офіційні штрафні бали ще не реалізовані.');}));
+  updateStatus();$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';say('Іспит розпочато','Підказки вимкнено. Дотримуйтеся правил дорожнього руху.');});
+$('#reset').addEventListener('click',()=>{speed=0;started=false;mapDriving=false;routeProgressMeters=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';say('Автомобіль скинуто','Натисніть «Почати заїзд», щоб почати знову.');});
 document.querySelectorAll('[data-box]').forEach(b=>b.addEventListener('click',()=>{gearbox=b.dataset.box;document.querySelectorAll('[data-box]').forEach(x=>x.classList.toggle('active',x===b));$('#manualGears').hidden=gearbox!=='manual';$('#autoGears').hidden=gearbox!=='auto';gear=gearbox==='manual'?'1':'D';$('#gearValue').textContent=gear;}));
 document.querySelectorAll('[data-camera]').forEach(b=>b.addEventListener('click',()=>{camera=b.dataset.camera;document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x===b));}));
 document.querySelectorAll('[data-gear]').forEach(b=>b.addEventListener('click',()=>{gear=b.dataset.gear;document.querySelectorAll('[data-gear]').forEach(x=>x.classList.toggle('chosen',x===b));$('#gearValue').textContent=gear;}));
