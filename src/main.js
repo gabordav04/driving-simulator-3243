@@ -88,6 +88,41 @@ function prepareRoutePath(path){
     ensureMapCar(routePath[0]);
   }
 }
+// Route 1 provisional georeference: traced approximately from the official scheme image.
+// These via-points are a first-pass approximation and must be visually checked against the roads.
+const ROUTE1_PREVIEW_WAYPOINTS=[
+ {lat:50.50336903085713,lng:30.84229163764248},
+ {lat:50.50425,lng:30.84205},
+ {lat:50.50535,lng:30.84105},
+ {lat:50.50605,lng:30.83895},
+ {lat:50.50485,lng:30.83715},
+ {lat:50.50595,lng:30.83475},
+ {lat:50.50515,lng:30.83185},
+ {lat:50.50535,lng:30.82675},
+ {lat:50.50515,lng:30.82485}
+];
+async function buildRoute1Preview(){
+ if(!googleMap||routePath.length>1)return false;
+ try{
+  const {Route}=await google.maps.importLibrary('routes');
+  setMapMessage('Будую попередню геоприв’язку маршруту №1 за офіційною схемою…');
+  const {routes}=await Route.computeRoutes({
+   origin:ROUTE1_PREVIEW_WAYPOINTS[0],destination:ROUTE1_PREVIEW_WAYPOINTS.at(-1),
+   intermediates:ROUTE1_PREVIEW_WAYPOINTS.slice(1,-1).map(location=>({location,via:true})),
+   travelMode:'DRIVING',optimizeWaypointOrder:false,language:'uk',
+   fields:['path','distanceMeters','durationMillis']
+  });
+  if(!routes?.[0]?.path?.length)throw new Error('Google Routes не повернув дорожню геометрію');
+  prepareRoutePath(routes[0].path);
+  const bounds=new google.maps.LatLngBounds();routePath.forEach(p=>bounds.extend(p));googleMap.fitBounds(bounds,{top:70,right:40,bottom:40,left:40});
+  setMapMessage('Маршрут №1 нанесено попередньо за офіційною схемою. Геоприв’язка експериментальна — перевір відповідність кожного повороту перед тренуванням.');
+  return true;
+ }catch(error){
+  console.warn('Route 1 provisional georeference failed',error);
+  setMapMessage('Не вдалося автоматично побудувати попередній маршрут №1. Перевір доступ до Routes API.');
+  return false;
+ }
+}
 function positionOnRoute(meters){
   if(!routePath.length)return null;
   const total=routePathMeters[routePathMeters.length-1]||0;meters=Math.max(0,Math.min(meters,total));
@@ -166,13 +201,13 @@ async function loadGoogleMap(apiKey){
     ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
-    try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1)prepareRoutePath(savedPath);}catch{}
+    let hasSavedRoute=false;try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1){prepareRoutePath(savedPath);hasSavedRoute=true;}}catch{}
     drawRouteMarkers();
     if(!googleMap.__routeEditorBound){
       googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
       googleMap.__routeEditorBound=true;
     }
-    if(!mapsAuthFailed)setMapMessage(routePath.length>1?'Карта готова. Маршрут №1 завантажено збереженими дорожніми координатами.':'Карта готова. Маршрут №1 ще не прив’язаний до дорожніх координат. Заїзд не запускатиметься, доки маршрут не буде коректно оцифрований.');
+    if(!mapsAuthFailed){if(hasSavedRoute)setMapMessage('Карта готова. Маршрут №1 завантажено зі збережених дорожніх координат.');else await buildRoute1Preview();}
     return !mapsAuthFailed;
   }catch(error){
     setMapMessage('Помилка ініціалізації Google Maps: '+(error?.message||'невідома помилка')+'.');
