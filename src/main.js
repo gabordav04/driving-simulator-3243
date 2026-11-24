@@ -155,13 +155,59 @@ function addRoutePoint(latLng){
   setRouteEditStatus('Додано точку '+routePoints.length+'. Продовжуй уздовж синьої лінії за червоними стрілками.');
 }
 const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
+const googleDiagMessages=[];
+function recordGoogleDiag(kind,message){
+ const line='['+new Date().toISOString()+'] '+kind+': '+String(message);
+ if(/google|maps|api key|billing|referrer|quota|network|script/i.test(line)){
+  googleDiagMessages.push(line);
+  if(googleDiagMessages.length>30)googleDiagMessages.shift();
+ }
+}
+const originalConsoleError=console.error.bind(console),originalConsoleWarn=console.warn.bind(console);
+console.error=(...args)=>{recordGoogleDiag('console.error',args.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' '));originalConsoleError(...args);};
+console.warn=(...args)=>{recordGoogleDiag('console.warn',args.map(x=>typeof x==='string'?x:JSON.stringify(x)).join(' '));originalConsoleWarn(...args);};
+window.addEventListener('error',e=>recordGoogleDiag('window.error',(e.message||'unknown')+' '+(e.filename||'')+':'+(e.lineno||'')));
+window.addEventListener('unhandledrejection',e=>recordGoogleDiag('unhandledrejection',e.reason?.message||e.reason||'unknown'));
+function buildGoogleDiagReport(){
+ const key=localStorage.getItem(MAPS_KEY)||'';
+ const script=document.querySelector('script[data-ds-google-maps]');
+ const mapEl=$('#googleMap');
+ const rect=mapEl?.getBoundingClientRect();
+ const info=[
+ 'DS3243 Google Maps diagnostic',
+ 'URL: '+location.href,
+ 'Time: '+new Date().toISOString(),
+ 'API key saved in this browser: '+(key?'YES (value hidden)':'NO'),
+ 'Google script element: '+(script?'present':'missing'),
+ 'Google script status: '+(script?.readyState|| (script?.dataset.loaded||'unknown')),
+ 'window.google.maps: '+(!!window.google?.maps),
+ 'google.maps.importLibrary: '+(!!window.google?.maps?.importLibrary),
+ 'Map instance created: '+(!!googleMap),
+ 'Map container size: '+(rect?Math.round(rect.width)+'x'+Math.round(rect.height):'missing'),
+ 'Map container display: '+(mapEl?getComputedStyle(mapEl).display:'missing'),
+ 'Map data-ready: '+(mapEl?.dataset.mapReady||'no'),
+ 'Map data-error: '+(mapEl?.dataset.mapError||'none'),
+ 'Auth failure callback: '+(mapsAuthFailed?'FIRED':'not fired'),
+ 'Current map type: '+(googleMap?.getMapTypeId?.()||'not available'),
+ 'Current zoom: '+(googleMap?.getZoom?.()??'not available'),
+ 'Captured Google/browser errors:',
+ ...(googleDiagMessages.length?googleDiagMessages:['No matching console errors captured'])
+ ];
+ return info.join('\n');
+}
+function refreshGoogleDiag(){const pre=$('#googleDiagReport');if(pre)pre.textContent=buildGoogleDiagReport();}
+$('#googleDiagToggle')?.addEventListener('click',()=>{const box=$('#googleDiagDetails');box.hidden=!box.hidden;if(!box.hidden)refreshGoogleDiag();});
+$('#googleDiagCopy')?.addEventListener('click',async()=>{refreshGoogleDiag();try{await navigator.clipboard.writeText($('#googleDiagReport').textContent);$('#googleDiagCopy').textContent='Звіт скопійовано';}catch{$('#googleDiagCopy').textContent='Виділи звіт і скопіюй вручну';}});
+
 mapInput.value=localStorage.getItem(MAPS_KEY)||'';
 function setMapMessage(message){$('#mapMessage').textContent=message;}
 let mapsAuthFailed=false;
 window.gm_authFailure=function(){
   mapsAuthFailed=true;
-  setMapMessage('Google відхилив API-ключ. Перевір Billing, Maps JavaScript API та HTTP referrer: https://driving-simulator-3243.onrender.com/* у Google Cloud.');
-  mapStatus.textContent='Google не авторизував ключ. Відкрий Google Cloud → APIs & Services → Credentials.';
+  recordGoogleDiag('Google Maps auth failure','gm_authFailure callback fired; API key, billing, referrer or API restrictions may be invalid.');
+  setMapMessage('Google відхилив авторизацію. Відкрий «Діагностика Google» для точного звіту.');
+  mapStatus.textContent='Google не авторизував ключ. Діагностику записано.';
+  refreshGoogleDiag();
 };
 async function loadGoogleMap(apiKey){
   if(!apiKey){
@@ -201,7 +247,8 @@ async function loadGoogleMap(apiKey){
       await window.__dsMapsLoadPromise;
       if(!window.google?.maps?.importLibrary)throw new Error('Google Maps скрипт завантажився, але API не ініціалізувався');
       mapsLoaded=true;
-    }else mapsLoaded=true;
+      recordGoogleDiag('Google Maps script','loaded successfully');
+    }else{mapsLoaded=true;recordGoogleDiag('Google Maps script','already available in window.google.maps');}
     if(mapsAuthFailed)throw new Error('Google відхилив API-ключ. Перевір доступ Maps JavaScript API, Billing та HTTP referrer.');
     const {Map}=await google.maps.importLibrary('maps');
     const mapElement=$('#googleMap');
@@ -243,8 +290,10 @@ async function loadGoogleMap(apiKey){
     updateMapLayerButtons();
     return true;
   }catch(error){
+    recordGoogleDiag('DS3243 map initialization failed',error?.stack||error?.message||error);
     console.error('DS3243 Google Maps initialization failed:',error);
     const message=error?.message||'невідома помилка';
+    refreshGoogleDiag();
     $('#googleMap').dataset.mapError=message;
     showMapFailure('Карта не завантажилася: '+message+'. Перевір інтернет та Google Maps API-ключ.');
     return false;
