@@ -67,6 +67,16 @@ let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null
 let routePath=[], routeCar=null, routePathMeters=[], routeProgressMeters=0, mapDriving=false;
 const ROUTE1_PATH_KEY='ds3243.route1.roadPath.v1';
 function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
+function carMapIcon(){
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="34" rx="25" ry="27" fill="#06111b" opacity=".28"/><path d="M17 17Q19 10 25 9h14q6 1 8 8l5 13v17q0 5-5 5h-4v-4H21v4h-4q-5 0-5-5V30z" fill="#1687d9" stroke="#fff" stroke-width="3"/><path d="M22 16h20l5 14H17z" fill="#bce9fa" stroke="#0c4770" stroke-width="2"/><path d="M17 34h30v12H17z" fill="#0866aa"/><path d="M13 27h5v8h-5zm33 0h5v8h-5z" fill="#ffe28a"/><path d="M21 49h22" stroke="#082f4d" stroke-width="3" stroke-linecap="round"/></svg>';
+  return {url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(48,48),anchor:new google.maps.Point(24,24)};
+}
+function ensureMapCar(position){
+  if(!googleMap||!google.maps?.Marker)return;
+  const point=position||googleMap.getCenter()?.toJSON()||{lat:50.503529,lng:30.841481};
+  if(!routeCar)routeCar=new google.maps.Marker({map:googleMap,position:point,title:'Навчальний автомобіль · стартова позиція',zIndex:1000,icon:carMapIcon()});
+  else {routeCar.setMap(googleMap);routeCar.setPosition(point);routeCar.setIcon(carMapIcon());}
+}
 function prepareRoutePath(path){
   routePath=path.map(p=>({lat:typeof p.lat==='function'?p.lat():p.lat,lng:typeof p.lng==='function'?p.lng():p.lng}));
   routePathMeters=[0];for(let i=1;i<routePath.length;i++)routePathMeters[i]=routePathMeters[i-1]+haversine(routePath[i-1],routePath[i]);
@@ -75,7 +85,7 @@ function prepareRoutePath(path){
   if(routeLine)routeLine.setMap(null);
   if(routePath.length){
     routeLine=new google.maps.Polyline({map:googleMap,path:routePath,strokeColor:'#075de5',strokeOpacity:.95,strokeWeight:7,zIndex:10});
-    routeCar=new google.maps.Marker({map:googleMap,position:routePath[0],title:'Навчальний автомобіль',zIndex:1000,label:{text:'🚗',fontSize:'22px'}});
+    ensureMapCar(routePath[0]);
   }
 }
 function positionOnRoute(meters){
@@ -153,6 +163,7 @@ async function loadGoogleMap(apiKey){
         zoom:15,mapTypeControl:true,streetViewControl:true,fullscreenControl:true,clickableIcons:true
       });
     }
+    ensureMapCar(routePath.length?routePath[0]:googleMap.getCenter()?.toJSON());
     setTimeout(()=>google.maps.event.trigger(googleMap,'resize'),100);
     try{routePoints=JSON.parse(localStorage.getItem(ROUTE1_POINTS_KEY)||'[]');}catch{routePoints=[];}
     try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1)prepareRoutePath(savedPath);}catch{}
