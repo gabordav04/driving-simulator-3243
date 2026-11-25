@@ -423,6 +423,7 @@ async function openDriverView(){
     console.info('Street View panorama found',{status:lastStatus,target,panorama:result.data.location.description,position:result.data.location.latLng?.toJSON?.()});
     streetPanorama.setPosition(result.data.location.latLng||target);
     streetPanorama.setPano(result.data.location.pano);
+    lastStreetPanoId=result.data.location.pano;lastPanoMeters=routeProgressMeters;lastPanoRequest=performance.now();
     streetPanorama.setPov({heading:routePath.length?routeHeadingAt(routeProgressMeters):0,pitch:0});
     streetPanorama.setVisible(true);
     threeCanvas.style.display='none';$('#streetPanorama').style.display='block';
@@ -437,6 +438,49 @@ function routeHeadingAt(meters){
   if(!a||!b)return 0;
   const rad=x=>x*Math.PI/180,y=Math.sin(rad(b.lng-a.lng))*Math.cos(rad(b.lat)),x=Math.cos(rad(a.lat))*Math.sin(rad(b.lat))-Math.sin(rad(a.lat))*Math.cos(rad(b.lat))*Math.cos(rad(b.lng-a.lng));
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+let streetPanoPending=false,streetPanoRequestId=0,lastStreetPanoId='';
+async function syncStreetViewToRoute(force=false){
+  if(!driverVisible||!mapDriving||!streetPanorama||!streetService||!routePathMeters.length||streetPanoPending)return;
+  const now=performance.now();
+  if(!force&&(Math.abs(routeProgressMeters-lastPanoMeters)<18||now-lastPanoRequest<1100))return;
+  const requestedMeters=routeProgressMeters;
+  const lookAhead=Math.min(routePathMeters.at(-1)||0,requestedMeters+Math.max(4,Math.min(12,speed*0.65)));
+  const target=positionOnRoute(lookAhead);
+  if(!target)return;
+  const requestId=++streetPanoRequestId;
+  streetPanoPending=true;lastPanoRequest=now;lastPanoMeters=requestedMeters;
+  const heading=routeHeadingAt(lookAhead);
+  try{
+    let found=null,lastStatus='ZERO_RESULTS';
+    for(const radius of [35,65]){
+      const response=await new Promise(resolve=>{
+        streetService.getPanorama({location:target,radius,preference:'NEAREST'},(data,status)=>resolve({data,status:status||'UNKNOWN_ERROR'}));
+      });
+      lastStatus=response.status;
+      if(lastStatus==='OK'&&response.data?.location?.pano){found=response.data;break;}
+      if(lastStatus==='REQUEST_DENIED'||lastStatus==='OVER_QUERY_LIMIT')break;
+    }
+    if(requestId!==streetPanoRequestId||!driverVisible||!streetPanorama)return;
+    if(found?.location?.pano){
+      const panoId=found.location.pano;
+      if(panoId!==lastStreetPanoId){
+        streetPanorama.setPano(panoId);
+        lastStreetPanoId=panoId;
+      }
+      streetPanorama.setPov({heading,pitch:0});
+      const panoPos=found.location.latLng?.toJSON?.();
+      if(panoPos)streetPanorama.setPosition(panoPos);
+      $('#streetMessage').textContent='Вид з авто · рух уздовж маршруту. Швидкість симулятора керує переміщенням між панорамами.';
+    }else if(lastStatus!=='ZERO_RESULTS'){
+      console.warn('Street View route-following lookup failed',{status:lastStatus,meters:requestedMeters,target});
+      $('#streetMessage').textContent='Street View: '+lastStatus+'. Продовжую рух за маршрутом; на цій ділянці панорами можуть бути відсутні.';
+    }
+  }catch(error){
+    console.warn('Street View route-following error',error);
+  }finally{
+    if(requestId===streetPanoRequestId)streetPanoPending=false;
+  }
 }
 $('#showDriver').addEventListener('click',openDriverView);
 // Initial map activation is deferred until canvas and Three.js elements are initialized.
@@ -667,7 +711,7 @@ $('#horn').addEventListener('click',()=>say('Звуковий сигнал','С�
 $('#start').addEventListener('click',()=>{started=true;
   if(mapVisible||driverVisible){
     if(!routePath.length){started=false;setRouteEditStatus('Спочатку нанеси контрольні точки та натисни «Побудувати дорогу».');return;}
-    mapDriving=true;routeProgressMeters=0;speed=0;const p=positionOnRoute(0);if(p&&routeCar)routeCar.setPosition(p);
+    mapDriving=true;routeProgressMeters=0;speed=0;lastPanoMeters=-100;lastPanoRequest=0;streetPanoPending=false;const p=positionOnRoute(0);if(p&&routeCar)routeCar.setPosition(p);if(driverVisible)syncStreetViewToRoute(true);
     setRouteEditStatus('Заїзд розпочато. W/↑ — газ, S/↓ або пробіл — гальмо. Автомобіль рухається по побудованій траєкторії.');
   }
   updateStatus();$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';say('Іспит розпочато','Підказки вимкнено. Дотримуйтеся правил дорожнього руху.');});
@@ -679,18 +723,7 @@ window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;i
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 document.querySelectorAll('[data-touch]').forEach(b=>{const k=b.dataset.touch;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));});
 function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible||driverVisible)advanceMapCar(dt);
-if(driverVisible&&mapDriving&&streetPanorama&&routePathMeters.length&&Math.abs(routeProgressMeters-lastPanoMeters)>35&&performance.now()-lastPanoRequest>2500){
- lastPanoMeters=routeProgressMeters;lastPanoRequest=performance.now();
- const pos=positionOnRoute(routeProgressMeters);
- streetService.getPanorama({location:pos,radius:80,preference:'NEAREST'},(data,status)=>{
-   if(status==='OK'&&data?.location?.pano&&driverVisible&&streetPanorama){
-     streetPanorama.setPano(data.location.pano);
-     streetPanorama.setPov({heading:routeHeadingAt(routeProgressMeters),pitch:0});
-   }else if(status&&status!=='ZERO_RESULTS'){
-     console.warn('Street View next-panorama lookup failed',{status,position:pos});
-   }
- });
-}
+if(driverVisible&&mapDriving)syncStreetViewToRoute(false);
 elapsed+=dt;turnClock+=dt;updateGuide(now);$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
 requestAnimationFrame(animate);}
 requestAnimationFrame(animate);
