@@ -371,6 +371,9 @@ async function openDriverView(){
   const key=localStorage.getItem(MAPS_KEY);
   if(!key){show3DFallback('Немає API-ключа Google Maps.');return;}
   const ready=await loadGoogleMap(key);
+  if(ready&&!routePath.length){
+    try{const saved=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(saved.length>1)prepareRoutePath(saved);}catch(error){console.warn('Could not restore saved road path for Street View',error);}
+  }
   if(!ready||!window.google?.maps?.importLibrary){
     show3DFallback(mapsAuthFailed
       ?'Google відхилив API-ключ. Перевір обмеження ключа та Billing.'
@@ -467,9 +470,7 @@ async function syncStreetViewToRoute(force=false){
         lastStreetPanoId=panoId;
       }
       streetPanorama.setPov({heading,pitch:0});
-      const panoPos=found.location.latLng?.toJSON?.();
-      if(panoPos)streetPanorama.setPosition(panoPos);
-      $('#streetMessage').textContent='Вид з авто · рух уздовж маршруту. Швидкість симулятора керує переміщенням між панорамами.';
+      $('#streetMessage').textContent='Вид з авто · рух уздовж маршруту. Натисни ▲, щоб їхати; панорами перемикаються за напрямком дороги.';
     }else if(lastStatus!=='ZERO_RESULTS'){
       console.warn('Street View route-following lookup failed',{status:lastStatus,meters:requestedMeters,target});
       $('#streetMessage').textContent='Street View: '+lastStatus+'. Продовжую рух за маршрутом; на цій ділянці панорами можуть бути відсутні.';
