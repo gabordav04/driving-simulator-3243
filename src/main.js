@@ -455,7 +455,21 @@ $('#buildRoute').addEventListener('click',async()=>{
     const km=(routes[0].distanceMeters/1000).toFixed(2);
     prepareRoutePath(routes[0].path||[]);
     setRouteEditStatus('Дорожню траєкторію побудовано ('+km+' км). Натисни «Почати заїзд», щоб рухати автомобіль по цій лінії. Перевір відповідність офіційній схемі №1.');
-  }catch(err){setRouteEditStatus('Помилка побудови маршруту. Перевір, чи увімкнено Routes API для цього ключа.');}
+  }catch(err){
+    const detail={
+      name:err?.name||'Error',
+      message:err?.message||String(err),
+      code:err?.code??'n/a',
+      endpoint:err?.endpoint??'n/a',
+      status:err?.status??'n/a',
+      stack:err?.stack||'n/a'
+    };
+    const report='ROUTE COMPUTE ERROR\\n'+JSON.stringify(detail,null,2);
+    recordGoogleDiag('Routes API computeRoutes failed',report);
+    console.error('DS3243 Routes API computeRoutes failed:',detail,err);
+    setRouteEditStatus('Google відхилив побудову маршруту: '+detail.name+(detail.code!=='n/a'?' ['+detail.code+']':'')+'. '+detail.message+' Деталі додано до «Діагностика Google».');
+    refreshGoogleDiag();
+  }
 });
 
 
