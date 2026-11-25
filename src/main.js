@@ -289,7 +289,7 @@ async function loadGoogleMap(apiKey){
     try{const savedPath=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(savedPath.length>1){prepareRoutePath(savedPath);hasSavedRoute=true;}}catch{}
     drawRouteMarkers();
     if(!googleMap.__routeEditorBound){
-      googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng)addRoutePoint(e.latLng);});
+      googleMap.addListener('click',e=>{if(routeEditEnabled&&e.latLng){addRoutePoint(e.latLng);setRouteEditStatus('Точка '+routePoints.length+' збережена. Перемісти карту та познач наступний поворот або ділянку дороги.');}});
       googleMap.__routeEditorBound=true;
     }
     if(!mapsAuthFailed){
@@ -330,7 +330,7 @@ function setView(showMap){
   $('.sim').classList.remove('view-clean');
   $('.sim').classList.toggle('map-active',showMap);
   $('#googleMap').style.display=showMap?'block':'none';
-  $('#routeEditor').style.display='none';
+  $('#routeEditor').style.display=showMap?'block':'none';
   canvas.style.display=showMap?'none':'block';
   $('#mapMessage').style.display=showMap?'block':'none';
   $('#showMap').classList.toggle('active',showMap);
@@ -343,6 +343,22 @@ function setView(showMap){
   }
 }
 $('#showMap').addEventListener('click',()=>setView(true));
+$('#routeEditorToggle')?.addEventListener('click',()=>{
+ if(!mapVisible)setView(true);
+ const editor=$('#routeEditor');
+ editor.open=!editor.open;
+ if(editor.open){
+  setRouteEditStatus('Прокладання маршруту №1: обери «Додати точки», потім торкайся карти вздовж дороги. Перемикай «Карта / Супутник» для точнішої розмітки.');
+  editor.scrollIntoView({block:'nearest',behavior:'smooth'});
+ }
+});
+$('#exportRoutePoints')?.addEventListener('click',async()=>{
+ const payload={route:1,source:'user-traced-on-ipad',createdAt:new Date().toISOString(),points:routePoints,path:routePath};
+ const json=JSON.stringify(payload,null,2);
+ try{await navigator.clipboard.writeText(json);setRouteEditStatus('Координати скопійовано. Встав їх сюди в чат — я зможу перевірити та перенести маршрут.');}
+ catch{setRouteEditStatus('Не вдалося скопіювати автоматично. Точки збережені в цьому браузері; спробуй кнопку ще раз.');}
+});
+
 function updateMapLayerButtons(){
  const type=googleMap?.getMapTypeId?.()||'roadmap';
  $('#mapRoad')?.classList.toggle('active',type==='roadmap');
@@ -438,11 +454,10 @@ $('#showDriver').addEventListener('click',openDriverView);
 // Initial map activation is deferred until canvas and Three.js elements are initialized.
 $('#setRouteStart').addEventListener('click',()=>{
   if(!googleMap){setRouteEditStatus('Спочатку завантаж карту Google Maps.');return;}
-  const center=googleMap.getCenter();
-  if(!center){setRouteEditStatus('Карта ще завантажується. Спробуй за мить.');return;}
-  routePoints=[{lat:center.lat(),lng:center.lng()}];
-  saveRoutePoints();drawRouteMarkers();googleMap.setZoom(Math.max(googleMap.getZoom()||15,17));
-  setRouteEditStatus('Стартову контрольну точку встановлено в центрі карти. Перемісти карту до входу ТСЦ 3243, якщо потрібно, та уточни точку перед додаванням решти маршруту.');
+  const start={lat:50.50336903085713,lng:30.84229163764248};
+  routePoints=[start];saveRoutePoints();drawRouteMarkers();
+  googleMap.panTo(start);googleMap.setZoom(18);
+  setRouteEditStatus('Старт задано біля ТСЦ №3243. Увімкни «Додати точки» та познач наступні точки вздовж дороги.');
 });
 $('#editRoutePoints').addEventListener('click',()=>{
   routeEditEnabled=!routeEditEnabled;
@@ -453,7 +468,7 @@ $('#editRoutePoints').addEventListener('click',()=>{
 $('#undoRoutePoint').addEventListener('click',()=>{routePoints.pop();saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Останню точку скасовано.');});
 $('#clearRoutePoints').addEventListener('click',()=>{routePoints=[];saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Контрольні точки очищено.');});
 $('#buildRoute').addEventListener('click',async()=>{
-  if(routePoints.length<2){setRouteEditStatus('Потрібно щонайменше 2 точки: старт і фініш.');return;}
+  if(routePoints.length<2){setRouteEditStatus('Потрібно щонайменше 2 точки: старт і фініш. Для точного маршруту додавай точки на кожному повороті.');return;}
   try{
     const {Route}=await google.maps.importLibrary('routes');
     setRouteEditStatus('Google Maps прокладає дорогу між контрольними точками…');
