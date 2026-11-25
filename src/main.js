@@ -460,7 +460,7 @@ async function syncStreetViewToRoute(force=false){
   if(!target)return;
   const requestId=++streetPanoRequestId;
   streetPanoPending=true;lastPanoRequest=now;lastPanoMeters=requestedMeters;
-  const heading=routeHeadingAt(lookAhead);
+  const heading=(routeHeadingAt(lookAhead)+(speed<0?180:0))%360;
   try{
     let found=null,lastStatus='ZERO_RESULTS';
     for(const radius of [80,140,220]){
