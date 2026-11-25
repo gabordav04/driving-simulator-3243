@@ -159,6 +159,7 @@ function addRoutePoint(latLng){
     addedIndex=routePoints.length-1;
   }
   saveRoutePoints();drawRouteMarkers();
+  const insertButton=$('#insertRoutePointAfter');if(insertRoutePointAfterSelected&&insertButton)insertButton.textContent='✓ Додавати після точки №'+(selectedRoutePointIndex+1);
   setRouteEditStatus('Додано точку №'+(addedIndex+1)+(insertRoutePointAfterSelected?' після вибраної. Усі наступні точки перенумеровано.':' в кінець маршруту.')+' Натисни «Побудувати дорогу».');
 }
 const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
