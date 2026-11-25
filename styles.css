@@ -196,3 +196,9 @@
   }
   .sim.view-clean .touch button { background: #101923eF; }
 }
+
+
+/* Simplified driving mode: gearbox is intentionally hidden; keyboard is the primary control. */
+.settings-fold .fold-content > label:first-of-type,
+.settings-fold .fold-content > label:first-of-type + .seg { display:none !important; }
+.settings-fold .fold-content > label:nth-of-type(2) { margin-top:8px; }
