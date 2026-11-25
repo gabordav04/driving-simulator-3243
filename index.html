@@ -37,8 +37,8 @@ window.addEventListener('unhandledrejection',function(e){
 <label>Камера</label><div class="seg"><button class="active" data-camera="cockpit">З салону</button><button data-camera="chase">Зовні</button></div>
  </div></details><button id="start" class="primary">▶ Почати заїзд</button><button id="reset" class="secondary">↺ Скинути автомобіль</button></aside>
 <section class="sim">
-<div class="simtoolbar"><button id="showMap">Карта</button><button id="showDriver">Вид з авто</button></div>
-<details id="routeEditor" class="route-editor" style="display:none">
+<div class="simtoolbar"><button id="showMap">Карта</button><button id="showDriver">Вид з авто</button></div><button type="button" id="routeEditorToggle" class="route-editor-toggle">✎ Прокласти маршрут №1</button>
+<details id="routeEditor" class="route-editor">
   <summary>Керування маршрутом <span id="routePointCount">0 точок</span></summary>
   <div class="route-editor-content">
     <b>МАРШРУТ №1 · ОФІЦІЙНА СХЕМА</b>
@@ -48,6 +48,7 @@ window.addEventListener('unhandledrejection',function(e){
     <button id="undoRoutePoint">↶ Скасувати</button>
     <button id="buildRoute">Побудувати дорогу</button>
     <button id="clearRoutePoints">Очистити</button>
+    <button id="exportRoutePoints">Копіювати точки</button>
     <small id="routeEditStatus">Додай контрольні точки на карті в напрямку червоних стрілок.</small>
   </div>
 </details>
