@@ -435,8 +435,7 @@ function routeHeadingAt(meters){
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
 $('#showDriver').addEventListener('click',openDriverView);
-setView(true);
-window.__dsMainReachedMapInit=true;
+// Initial map activation is deferred until canvas and Three.js elements are initialized.
 $('#setRouteStart').addEventListener('click',()=>{
   if(!googleMap){setRouteEditStatus('Спочатку завантаж карту Google Maps.');return;}
   const center=googleMap.getCenter();
@@ -589,6 +588,8 @@ function updateGuide(now){
 }
 function resize(){const r=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);canvas.width=Math.max(1,Math.round(r.width*dpr));canvas.height=Math.max(1,Math.round(r.height*dpr));ctx.setTransform(dpr,0,0,dpr,0,0);}
 new ResizeObserver(()=>{resize();resizeThreeSimulator();}).observe($('.sim'));window.addEventListener('resize',()=>{resize();resizeThreeSimulator();});resize();initThreeSimulator();
+setView(true);
+window.__dsMainReachedMapInit=true;
 function path(points,color){ctx.fillStyle=color;ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(...p):ctx.moveTo(...p));ctx.closePath();ctx.fill();}
 function drawFallback(){
  const w=canvas.clientWidth,h=canvas.clientHeight,hor=h*.39;
