@@ -68,6 +68,11 @@ const ROUTE1_POINTS_KEY='ds3243.route1.controlPoints.v1';
 let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null;
 let routePath=[], routeCar=null, routePathMeters=[], routeProgressMeters=0, mapDriving=false;
 const ROUTE1_PATH_KEY='ds3243.route1.roadPath.v1';
+const ROUTE1_PREVIEW_CLEANUP_KEY='ds3243.route1.removeOldPreview.v1';
+if(!localStorage.getItem(ROUTE1_PREVIEW_CLEANUP_KEY)){
+  localStorage.removeItem(ROUTE1_PATH_KEY);
+  localStorage.setItem(ROUTE1_PREVIEW_CLEANUP_KEY,'1');
+}
 function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
 function carMapIcon(){
   const svg='<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="34" rx="25" ry="27" fill="#06111b" opacity=".28"/><path d="M17 17Q19 10 25 9h14q6 1 8 8l5 13v17q0 5-5 5h-4v-4H21v4h-4q-5 0-5-5V30z" fill="#1687d9" stroke="#fff" stroke-width="3"/><path d="M22 16h20l5 14H17z" fill="#bce9fa" stroke="#0c4770" stroke-width="2"/><path d="M17 34h30v12H17z" fill="#0866aa"/><path d="M13 27h5v8h-5zm33 0h5v8h-5z" fill="#ffe28a"/><path d="M21 49h22" stroke="#082f4d" stroke-width="3" stroke-linecap="round"/></svg>';
@@ -89,41 +94,6 @@ function prepareRoutePath(path){
     routeLine=new google.maps.Polyline({map:googleMap,path:routePath,strokeColor:'#075de5',strokeOpacity:.95,strokeWeight:7,zIndex:10});
     ensureMapCar(routePath[0]);
   }
-}
-// Route 1 provisional georeference: traced approximately from the official scheme image.
-// These via-points are a first-pass approximation and must be visually checked against the roads.
-const ROUTE1_PREVIEW_WAYPOINTS=[
- {lat:50.50336903085713,lng:30.84229163764248},
- {lat:50.50425,lng:30.84205},
- {lat:50.50535,lng:30.84105},
- {lat:50.50605,lng:30.83895},
- {lat:50.50485,lng:30.83715},
- {lat:50.50595,lng:30.83475},
- {lat:50.50515,lng:30.83185},
- {lat:50.50535,lng:30.82675},
- {lat:50.50515,lng:30.82485}
-];
-async function buildRoute1Preview(){
- if(!googleMap||routePath.length>1)return false;
- try{
-  const {Route}=await google.maps.importLibrary('routes');
-  setMapMessage('Будую попередню геоприв’язку маршруту №1 за офіційною схемою…');
-  const {routes}=await Route.computeRoutes({
-   origin:ROUTE1_PREVIEW_WAYPOINTS[0],destination:ROUTE1_PREVIEW_WAYPOINTS.at(-1),
-   intermediates:ROUTE1_PREVIEW_WAYPOINTS.slice(1,-1).map(location=>({location,via:true})),
-   travelMode:'DRIVING',optimizeWaypointOrder:false,language:'uk',
-   fields:['path','distanceMeters','durationMillis']
-  });
-  if(!routes?.[0]?.path?.length)throw new Error('Google Routes не повернув дорожню геометрію');
-  prepareRoutePath(routes[0].path);
-  const bounds=new google.maps.LatLngBounds();routePath.forEach(p=>bounds.extend(p));googleMap.fitBounds(bounds,{top:70,right:40,bottom:40,left:40});
-  setMapMessage('Маршрут №1 нанесено попередньо за офіційною схемою. Геоприв’язка експериментальна — перевір відповідність кожного повороту перед тренуванням.');
-  return true;
- }catch(error){
-  console.warn('Route 1 provisional georeference failed',error);
-  setMapMessage('Не вдалося автоматично побудувати попередній маршрут №1. Перевір доступ до Routes API.');
-  return false;
- }
 }
 function positionOnRoute(meters){
   if(!routePath.length)return null;
@@ -293,8 +263,8 @@ async function loadGoogleMap(apiKey){
       googleMap.__routeEditorBound=true;
     }
     if(!mapsAuthFailed){
-      if(hasSavedRoute)setMapMessage('Карта готова. Маршрут №1 завантажено зі збережених дорожніх координат.');
-      else await buildRoute1Preview();
+      if(hasSavedRoute)setMapMessage('Карта готова. Завантажено збережений маршрут, який ти проклав у редакторі.');
+      else setMapMessage('Карта готова. Попередній автоматично намальований маршрут прибрано. Проклади свій маршрут у редакторі.');
     }
     updateMapLayerButtons();
     return true;
