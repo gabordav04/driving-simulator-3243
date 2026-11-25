@@ -67,6 +67,7 @@ let googleMap=null, mapsLoaded=false, mapVisible=false, driverVisible=false, str
 const ROUTE1_POINTS_KEY='ds3243.route1.controlPoints.v1';
 let routeEditEnabled=false, routePoints=[], routePointMarkers=[], routeLine=null;
 let selectedRoutePointIndex=-1;
+let insertRoutePointAfterSelected=false;
 let routePath=[], routeCar=null, routePathMeters=[], routeProgressMeters=0, mapDriving=false;
 const ROUTE1_PATH_KEY='ds3243.route1.roadPath.v1';
 const ROUTE1_PREVIEW_CLEANUP_KEY='ds3243.route1.removeOldPreview.v1';
@@ -135,6 +136,7 @@ function drawRouteMarkers(){
       selectedRoutePointIndex=i;
       drawRouteMarkers();
       const del=$('#deleteSelectedRoutePoint');if(del)del.disabled=false;
+      const insert=$('#insertRoutePointAfter');if(insert)insert.disabled=false;
       setRouteEditStatus('Вибрано точку №'+(i+1)+' із '+routePoints.length+'. Натисни «Видалити вибрану точку», якщо вона зайва.');
     });
     routePointMarkers.push(marker);
@@ -146,9 +148,18 @@ function drawRouteMarkers(){
 function setRouteEditStatus(t){$('#routeEditStatus').textContent=t;}
 function saveRoutePoints(){localStorage.setItem(ROUTE1_POINTS_KEY,JSON.stringify(routePoints));renderRoutePointCount();}
 function addRoutePoint(latLng){
-  routePoints.push({lat:latLng.lat(),lng:latLng.lng()});
+  const point={lat:latLng.lat(),lng:latLng.lng()};
+  let addedIndex;
+  if(insertRoutePointAfterSelected&&selectedRoutePointIndex>=0&&selectedRoutePointIndex<routePoints.length){
+    addedIndex=selectedRoutePointIndex+1;
+    routePoints.splice(addedIndex,0,point);
+    selectedRoutePointIndex=addedIndex;
+  }else{
+    routePoints.push(point);
+    addedIndex=routePoints.length-1;
+  }
   saveRoutePoints();drawRouteMarkers();
-  setRouteEditStatus('Додано точку '+routePoints.length+'. Продовжуй уздовж синьої лінії за червоними стрілками.');
+  setRouteEditStatus('Додано точку №'+(addedIndex+1)+(insertRoutePointAfterSelected?' після вибраної. Усі наступні точки перенумеровано.':' в кінець маршруту.')+' Натисни «Побудувати дорогу».');
 }
 const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
 const googleDiagMessages=[];
@@ -505,8 +516,16 @@ $('#editRoutePoints').addEventListener('click',()=>{
   $('#editRoutePoints').textContent=routeEditEnabled?'✓ Додавання увімкнено':'＋ Додати точки';
   setRouteEditStatus(routeEditEnabled?'Клацай по карті в порядку проходження маршруту №1, починаючи біля ТСЦ 3243.':'Додавання точок призупинено.');
 });
-$('#undoRoutePoint').addEventListener('click',()=>{if(!routePoints.length)return;routePoints.pop();selectedRoutePointIndex=-1;saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Останню точку скасовано.');});
-$('#deleteSelectedRoutePoint').addEventListener('click',()=>{if(selectedRoutePointIndex<0||selectedRoutePointIndex>=routePoints.length){setRouteEditStatus('Спочатку натисни маркер точки, яку потрібно видалити.');return;}const removed=selectedRoutePointIndex+1;routePoints.splice(selectedRoutePointIndex,1);selectedRoutePointIndex=-1;if(routeLine){routeLine.setMap(null);routeLine=null;}routePath=[];routePathMeters=[];localStorage.removeItem(ROUTE1_PATH_KEY);if(routeCar)routeCar.setMap(null);mapDriving=false;saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Точку №'+removed+' видалено. Решту точок перенумеровано. Стару дорожню лінію прибрано — побудуй маршрут повторно.');});
+$('#insertRoutePointAfter').addEventListener('click',()=>{
+  if(selectedRoutePointIndex<0||selectedRoutePointIndex>=routePoints.length){setRouteEditStatus('Спочатку вибери червоний маркер точки, після якої потрібно вставити нову.');return;}
+  insertRoutePointAfterSelected=!insertRoutePointAfterSelected;
+  const button=$('#insertRoutePointAfter');
+  button.classList.toggle('active',insertRoutePointAfterSelected);
+  button.textContent=insertRoutePointAfterSelected?'✓ Додавати після точки №'+(selectedRoutePointIndex+1):'↳ Додавати після вибраної точки';
+  setRouteEditStatus(insertRoutePointAfterSelected?'Режим вставлення увімкнено. Наступний клік по карті вставить точку ПІСЛЯ вибраної, а не в кінець маршруту.':'Режим вставлення вимкнено. Нові точки знову додаються в кінець.');
+});
+$('#undoRoutePoint').addEventListener('click',()=>{if(!routePoints.length)return;routePoints.pop();selectedRoutePointIndex=-1;insertRoutePointAfterSelected=false;$('#insertRoutePointAfter').disabled=true;$('#insertRoutePointAfter').classList.remove('active');$('#insertRoutePointAfter').textContent='↳ Додавати після вибраної точки';saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Останню точку скасовано.');});
+$('#deleteSelectedRoutePoint').addEventListener('click',()=>{if(selectedRoutePointIndex<0||selectedRoutePointIndex>=routePoints.length){setRouteEditStatus('Спочатку натисни маркер точки, яку потрібно видалити.');return;}const removed=selectedRoutePointIndex+1;routePoints.splice(selectedRoutePointIndex,1);selectedRoutePointIndex=-1;insertRoutePointAfterSelected=false;$('#insertRoutePointAfter').disabled=true;$('#insertRoutePointAfter').classList.remove('active');$('#insertRoutePointAfter').textContent='↳ Додавати після вибраної точки';if(routeLine){routeLine.setMap(null);routeLine=null;}routePath=[];routePathMeters=[];localStorage.removeItem(ROUTE1_PATH_KEY);if(routeCar)routeCar.setMap(null);mapDriving=false;saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Точку №'+removed+' видалено. Решту точок перенумеровано. Стару дорожню лінію прибрано — побудуй маршрут повторно.');});
 $('#clearRoutePoints').addEventListener('click',()=>{routePoints=[];selectedRoutePointIndex=-1;saveRoutePoints();drawRouteMarkers();setRouteEditStatus('Контрольні точки очищено.');});
 $('#buildRoute').addEventListener('click',async()=>{
   if(routePoints.length<2){setRouteEditStatus('Потрібно щонайменше 2 точки: старт і фініш. Для точного маршруту додавай точки на кожному повороті.');return;}
