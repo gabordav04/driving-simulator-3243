@@ -129,7 +129,7 @@ const mapInput=$('#mapsKey'), mapStatus=$('#mapsKeyStatus');
 const googleDiagMessages=[];
 function recordGoogleDiag(kind,message){
  const line='['+new Date().toISOString()+'] '+kind+': '+String(message);
- if(/google|maps|api key|billing|referrer|quota|network|script/i.test(line)){
+ if(/google|maps|routes?|api key|billing|referrer|quota|network|script/i.test(line)){
   googleDiagMessages.push(line);
   if(googleDiagMessages.length>30)googleDiagMessages.shift();
  }
