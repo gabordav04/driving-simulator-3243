@@ -680,6 +680,16 @@ function renderThreeSimulator(){
 }
 
 let mode='exam',gearbox='auto',gear='D',camera='cockpit',started=false,speed=0,elapsed=0,distance=0,steering=0,signal='—',lights=false,keys={},last=performance.now(),turnClock=0,lessonShown=false,routeLateralOffset=0;
+let examActive=false,examFinished=false,examMistakes=[],examCommandIndex=0;
+const EXAM_DURATION_SECONDS=20*60;
+const examinerCommands=[
+ 'Розпочніть рух. Будьте уважні та дотримуйтеся вимог дорожніх знаків.',
+ 'На найближчому перехресті виконайте поворот праворуч, коли це буде безпечно.',
+ 'На найближчій можливості виконайте поворот ліворуч.',
+ 'Продовжуйте рух прямо. Контролюйте швидкість та дорожню обстановку.',
+ 'Підготуйтеся до зупинки у безпечному дозволеному місці.',
+ 'Продовжуйте рух за маршрутом. Слідкуйте за пішоходами та іншими учасниками руху.'
+];
 const scenarios={
  intersection:{title:'Наближення до перехрестя',text:'Завчасно зменш швидкість. Оціни знаки пріоритету, оглянь обидва напрямки та переконайся, що маневр безпечний.'},
  pedestrian:{title:'Пішохідний перехід',text:'Зменш швидкість і стеж за тротуарами з обох боків. Будь готовий зупинитися, щоб пропустити пішохода.'},
@@ -688,6 +698,73 @@ const scenarios={
  parking:{title:'Зупинка біля узбіччя',text:'Оціни обстановку позаду, подай сигнал, плавно знизь швидкість і зупинись у дозволеному безпечному місці.'}
 };
 function say(title,text){$('#coachTitle').textContent=title;$('#coachText').textContent=text;}
+function examinerSpeak(text){
+ say('Екзаменатор',text);
+ if('speechSynthesis' in window){
+  window.speechSynthesis.cancel();
+  const utterance=new SpeechSynthesisUtterance(text);
+  utterance.lang='uk-UA';utterance.rate=.92;utterance.pitch=1;
+  window.speechSynthesis.speak(utterance);
+ }
+}
+function formatExamTime(seconds){
+ const safe=Math.max(0,Math.ceil(seconds));
+ return String(Math.floor(safe/60)).padStart(2,'0')+':'+String(safe%60).padStart(2,'0');
+}
+function updateExamPanel(){
+ const remaining=Math.max(0,EXAM_DURATION_SECONDS-elapsed);
+ const timer=$('#examTimer');if(timer)timer.textContent=formatExamTime(remaining);
+ const count=$('#mistakes');if(count)count.textContent=String(examMistakes.length);
+ const log=$('#examMistakeLog');
+ if(log)log.innerHTML=examMistakes.length?examMistakes.map((item,i)=>'<li><b>'+(i+1)+'.</b> '+item.text+' <small>'+formatExamTime(item.at)+'</small></li>').join(''):'<li>Помилок поки немає</li>';
+ const active=examActive&&!examFinished;
+ ['nextExamCommand','recordExamMistake','dangerExamStop'].forEach(id=>{const el=$('#'+id);if(el)el.disabled=!active;});
+ const state=$('#examState');if(state)state.textContent=examFinished?($('#assessment').textContent||'Іспит завершено'):active?'Іспит триває · залишилося '+formatExamTime(remaining):'Очікування початку іспиту';
+}
+function finishExam(result,reason){
+ if(examFinished)return;
+ examFinished=true;examActive=false;started=false;mapDriving=false;speed=0;keys={};
+ const passed=result==='passed';
+ $('#modeName').textContent=passed?'Іспит складено':'Іспит не складено';
+ $('#assessment').textContent=reason;
+ $('#examState').textContent=reason;
+ $('#start').textContent='↻ Повторити іспит';
+ updateExamPanel();
+ examinerSpeak(passed?'Іспит завершено. Вітаю, іспит складено.':'Іспит припинено. '+reason);
+}
+function registerExamMistake(text){
+ if(!examActive||examFinished)return;
+ examMistakes.push({text,at:elapsed});
+ updateExamPanel();
+ if(examMistakes.length>3){
+  finishExam('failed','Іспит не складено: зареєстровано більше трьох типових помилок.');
+ }else{
+  const left=3-examMistakes.length;
+  examinerSpeak('Зафіксовано типову помилку. '+(left? 'Залишилося допустимих помилок: '+left+'.':'Це третя типова помилка. Наступна типова помилка означатиме нескладений іспит.'));
+ }
+}
+function startPracticalExam(){
+ examActive=true;examFinished=false;examMistakes=[];examCommandIndex=0;elapsed=0;distance=0;
+ $('#modeName').textContent='Практичний іспит';
+ $('#assessment').textContent='Іспит триває. Допускається не більше трьох типових помилок.';
+ $('#start').textContent='▶ Іспит триває';
+ updateExamPanel();
+ examinerSpeak('Іспит розпочато. Тривалість двадцять хвилин. Допускається не більше трьох типових помилок. У разі створення небезпечної ситуації іспит буде припинено. Розпочніть рух.');
+}
+$('#nextExamCommand')?.addEventListener('click',()=>{
+ if(!examActive||examFinished)return;
+ const command=examinerCommands[examCommandIndex%examinerCommands.length];examCommandIndex++;
+ examinerSpeak(command);
+});
+$('#recordExamMistake')?.addEventListener('click',()=>{
+ const text=$('#examMistakeType').value;
+ registerExamMistake(text);
+});
+$('#dangerExamStop')?.addEventListener('click',()=>{
+ if(!examActive||examFinished)return;
+ finishExam('failed','Іспит негайно припинено через створення небезпечної ситуації.');
+});
+updateExamPanel();
 function updateGuide(now){
  if(!started||now-threeLastGuide<2200)return;
  threeLastGuide=now;
@@ -741,6 +818,7 @@ $('#start').addEventListener('click',()=>{
     try{const saved=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(saved.length>1&&googleMap)prepareRoutePath(saved);}catch(error){console.warn('Saved route restore failed',error);}
   }
   started=true;speed=0;
+  startPracticalExam();
   if(mapVisible||driverVisible){
     if(routePath.length){
       mapDriving=true;routeProgressMeters=0;routeLateralOffset=0;lastPanoMeters=-100;lastPanoRequest=0;streetPanoPending=false;
@@ -753,7 +831,7 @@ $('#start').addEventListener('click',()=>{
     }
   }
   updateStatus();$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';say('Іспит розпочато','Натисни ▲ на екрані або утримуй W/↑ для руху.');});
-$('#reset').addEventListener('click',()=>{speed=0;started=false;mapDriving=false;routeProgressMeters=0;routeLateralOffset=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';say('Автомобіль скинуто','Натисніть «Почати заїзд», щоб почати знову.');});
+$('#reset').addEventListener('click',()=>{speed=0;started=false;examActive=false;examFinished=false;examMistakes=[];examCommandIndex=0;mapDriving=false;routeProgressMeters=0;routeLateralOffset=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';$('#start').textContent='▶ Почати заїзд';updateExamPanel();say('Іспит скинуто','Натисніть «Почати заїзд», щоб почати новий іспит.');});
 document.querySelectorAll('[data-box]').forEach(b=>b.addEventListener('click',()=>{gearbox=b.dataset.box;document.querySelectorAll('[data-box]').forEach(x=>x.classList.toggle('active',x===b));$('#manualGears').hidden=gearbox!=='manual';$('#autoGears').hidden=gearbox!=='auto';gear=gearbox==='manual'?'1':'D';$('#gearValue').textContent=gear;}));
 document.querySelectorAll('[data-camera]').forEach(b=>b.addEventListener('click',()=>{camera=b.dataset.camera;document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x===b));}));
 document.querySelectorAll('[data-gear]').forEach(b=>b.addEventListener('click',()=>{gear=b.dataset.gear;document.querySelectorAll('[data-gear]').forEach(x=>x.classList.toggle('chosen',x===b));$('#gearValue').textContent=gear;}));
@@ -772,7 +850,7 @@ function animate(now){
   distance+=Math.abs(speed)*dt*12;
   if(mapVisible||driverVisible)advanceMapCar(dt);
   if(driverVisible&&mapDriving&&Math.abs(speed)>.2)syncStreetViewToRoute(false);
-  elapsed+=dt;turnClock+=dt;updateGuide(now);$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);
+  elapsed+=dt;turnClock+=dt;updateGuide(now);$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);if(examActive){updateExamPanel();if(elapsed>=EXAM_DURATION_SECONDS)finishExam('passed','20 хвилин завершено. Іспит складено за кількістю типових помилок: '+examMistakes.length+'.');}
  }else{steering*=.9;speed=0;}
  $('#speed').textContent=Math.round(speed*3.6);draw();
  requestAnimationFrame(animate);
