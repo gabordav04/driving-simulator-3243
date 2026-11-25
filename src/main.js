@@ -386,7 +386,8 @@ async function openDriverView(){
   driverVisible=true;mapVisible=false;
   $('#googleMap').style.display='none';$('#routeEditor').style.display='none';
   $('#mapMessage').style.display='none';canvas.style.display='none';
-  $('#driverView').style.display='block';$('.sim').classList.remove('map-active');$('.sim').classList.add('view-clean');
+  $('#driverView').style.display='block';$('#streetPanorama').style.display='none';threeCanvas.style.display='none';$('.sim').classList.remove('map-active');$('.sim').classList.add('view-clean');
+  $('#streetMessage').textContent='Підключаю Street View…';
   const show3DFallback=(message)=>{if(threeReady){$('#streetPanorama').style.display='none';threeCanvas.style.display='block';camera='cockpit';$('.sim').classList.remove('view-clean');$('#streetMessage').textContent=message+' Показано локальну 3D-сцену як резервний режим.';}else{$('#streetMessage').textContent=message;}};
   $('#showMap').classList.remove('active');$('#showDriver').classList.add('active');
   const key=localStorage.getItem(MAPS_KEY);
@@ -419,11 +420,20 @@ async function openDriverView(){
     for(const radius of [80,250,1000]){
       checkedRadius=radius;
       try{
-        const response=await new Promise((resolve,reject)=>{
-          streetService.getPanorama({location:target,radius,preference:'NEAREST'},(data,status)=>{
-            if(status==='OK'&&data)resolve({data,status});
-            else resolve({data:null,status:status||'UNKNOWN_ERROR'});
-          });
+        const response=await new Promise(resolve=>{
+          let settled=false;
+          const timer=setTimeout(()=>{
+            if(!settled){settled=true;resolve({data:null,status:'TIMEOUT'});}
+          },9000);
+          try{
+            streetService.getPanorama({location:target,radius,preference:'NEAREST'},(data,status)=>{
+              if(settled)return;
+              settled=true;clearTimeout(timer);
+              resolve({data:status==='OK'?data:null,status:status||'UNKNOWN_ERROR'});
+            });
+          }catch(error){
+            if(!settled){settled=true;clearTimeout(timer);resolve({data:null,status:error?.message||'REQUEST_ERROR'});}
+          }
         });
         lastStatus=response.status;
         if(response.data?.location?.pano){result=response;break;}
@@ -432,12 +442,14 @@ async function openDriverView(){
     if(!result?.data?.location?.pano){
       const detail=lastError?String(lastError.message||lastError):lastStatus;
       const explanation=lastStatus==='ZERO_RESULTS'
-        ?'Google не знайшов панорам поблизу цієї точки.'
+        ?'Google не знайшов панорам поблизу старту маршруту.'
         :lastStatus==='REQUEST_DENIED'
-          ?'Google відхилив запит. Перевір дозволи API та Billing у Google Cloud.'
+          ?'Google відхилив запит Street View. Потрібен дозвіл Street View та активний Billing.'
           :lastStatus==='OVER_QUERY_LIMIT'
             ?'Перевищено ліміт запитів Street View.'
-            :'Google не зміг обробити запит Street View.';
+            :lastStatus==='TIMEOUT'
+              ?'Google Street View не відповів протягом 9 секунд. Це не означає, що API-ключ неправильний.'
+              :'Google не зміг обробити запит Street View.';
       console.error('Street View lookup failed',{status:lastStatus,error:detail,target,radius:checkedRadius});
       show3DFallback(explanation+' Статус: '+lastStatus+'. Радіус перевірки: '+checkedRadius+' м.');
       return;
@@ -450,7 +462,7 @@ async function openDriverView(){
     streetPanorama.setVisible(true);
     threeCanvas.style.display='none';$('#streetPanorama').style.display='block';
     setTimeout(()=>google.maps.event.trigger(streetPanorama,'resize'),100);
-    $('#streetMessage').textContent='Вид з авто · панорама Google Street View. Огляд 360° доступний; рух між панорамами залежить від покриття.';
+    $('#streetMessage').textContent='Street View підключено. Панорама: '+(result.data.location.description||'доступна')+'. Керуй оглядом 360°; рух уздовж маршруту залежить від наявності панорам на наступних ділянках.';
   }catch(error){
     show3DFallback('Не вдалося запустити Street View: '+(error?.message||'невідома помилка')+'.');
   }
