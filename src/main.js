@@ -75,15 +75,13 @@ if(!localStorage.getItem(ROUTE1_PREVIEW_CLEANUP_KEY)){
   localStorage.setItem(ROUTE1_PREVIEW_CLEANUP_KEY,'1');
 }
 function haversine(a,b){const R=6371000,rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),x=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(x));}
-function carMapIcon(){
-  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><ellipse cx="32" cy="34" rx="25" ry="27" fill="#06111b" opacity=".28"/><path d="M17 17Q19 10 25 9h14q6 1 8 8l5 13v17q0 5-5 5h-4v-4H21v4h-4q-5 0-5-5V30z" fill="#1687d9" stroke="#fff" stroke-width="3"/><path d="M22 16h20l5 14H17z" fill="#bce9fa" stroke="#0c4770" stroke-width="2"/><path d="M17 34h30v12H17z" fill="#0866aa"/><path d="M13 27h5v8h-5zm33 0h5v8h-5z" fill="#ffe28a"/><path d="M21 49h22" stroke="#082f4d" stroke-width="3" stroke-linecap="round"/></svg>';
-  return {url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(48,48),anchor:new google.maps.Point(24,24)};
-}
+function carMapIcon(){return null;}
 function ensureMapCar(position){
   if(!googleMap||!google.maps?.Marker)return;
   const point=position||googleMap.getCenter()?.toJSON()||{lat:50.503529,lng:30.841481};
-  if(!routeCar)routeCar=new google.maps.Marker({map:googleMap,position:point,title:'Навчальний автомобіль · стартова позиція',zIndex:1000,icon:carMapIcon()});
-  else {routeCar.setMap(googleMap);routeCar.setPosition(point);routeCar.setIcon(carMapIcon());}
+  const carLabel={text:'🚗',fontSize:'34px',fontWeight:'normal'};
+  if(!routeCar)routeCar=new google.maps.Marker({map:googleMap,position:point,title:'Навчальний автомобіль',zIndex:10000,label:carLabel,optimized:false});
+  else {routeCar.setMap(googleMap);routeCar.setPosition(point);routeCar.setIcon(null);routeCar.setLabel(carLabel);}
 }
 function prepareRoutePath(path){
   routePath=path.map(p=>({lat:typeof p.lat==='function'?p.lat():p.lat,lng:typeof p.lng==='function'?p.lng():p.lng}));
@@ -453,7 +451,7 @@ async function syncStreetViewToRoute(force=false){
   const heading=routeHeadingAt(lookAhead);
   try{
     let found=null,lastStatus='ZERO_RESULTS';
-    for(const radius of [35,65]){
+    for(const radius of [80,140,220]){
       const response=await new Promise(resolve=>{
         streetService.getPanorama({location:target,radius,preference:'NEAREST'},(data,status)=>resolve({data,status:status||'UNKNOWN_ERROR'}));
       });
@@ -708,13 +706,23 @@ function setSignal(value){signal=signal===value?'—':value;$('#leftSignal').cla
 $('#leftSignal').addEventListener('click',()=>setSignal('←'));$('#rightSignal').addEventListener('click',()=>setSignal('→'));
 $('#lights').addEventListener('click',()=>{lights=!lights;$('#lights').textContent='Світло: '+(lights?'увімкнено':'вимкнено');$('#lights').classList.toggle('active',lights);updateStatus();});
 $('#horn').addEventListener('click',()=>say('Звуковий сигнал','Сигнал активовано в симуляції. Використовуй його лише за необхідності.'));
-$('#start').addEventListener('click',()=>{started=true;
-  if(mapVisible||driverVisible){
-    if(!routePath.length){started=false;setRouteEditStatus('Спочатку нанеси контрольні точки та натисни «Побудувати дорогу».');return;}
-    mapDriving=true;routeProgressMeters=0;speed=0;lastPanoMeters=-100;lastPanoRequest=0;streetPanoPending=false;const p=positionOnRoute(0);if(p&&routeCar)routeCar.setPosition(p);if(driverVisible)syncStreetViewToRoute(true);
-    setRouteEditStatus('Заїзд розпочато. W/↑ — газ, S/↓ або пробіл — гальмо. Автомобіль рухається по побудованій траєкторії.');
+$('#start').addEventListener('click',()=>{
+  if(!routePath.length){
+    try{const saved=JSON.parse(localStorage.getItem(ROUTE1_PATH_KEY)||'[]');if(saved.length>1&&googleMap)prepareRoutePath(saved);}catch(error){console.warn('Saved route restore failed',error);}
   }
-  updateStatus();$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';say('Іспит розпочато','Підказки вимкнено. Дотримуйтеся правил дорожнього руху.');});
+  started=true;speed=0;
+  if(mapVisible||driverVisible){
+    if(routePath.length){
+      mapDriving=true;routeProgressMeters=0;lastPanoMeters=-100;lastPanoRequest=0;streetPanoPending=false;
+      const p=positionOnRoute(0);if(p){if(googleMap)ensureMapCar(p);else if(routeCar)routeCar.setPosition(p);}
+      if(driverVisible)syncStreetViewToRoute(true);
+      setRouteEditStatus('Заїзд розпочато. Натисни ▲ або утримуй W/↑ для газу. Автомобіль рухається по побудованій дорозі.');
+    }else{
+      mapDriving=false;
+      $('#streetMessage').textContent='Заїзд запущено. Щоб їхати саме прокладеним маршрутом, спочатку побудуй дорожню траєкторію.';
+    }
+  }
+  updateStatus();$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';say('Іспит розпочато','Натисни ▲ на екрані або утримуй W/↑ для руху.');});
 $('#reset').addEventListener('click',()=>{speed=0;started=false;mapDriving=false;routeProgressMeters=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';say('Автомобіль скинуто','Натисніть «Почати заїзд», щоб почати знову.');});
 document.querySelectorAll('[data-box]').forEach(b=>b.addEventListener('click',()=>{gearbox=b.dataset.box;document.querySelectorAll('[data-box]').forEach(x=>x.classList.toggle('active',x===b));$('#manualGears').hidden=gearbox!=='manual';$('#autoGears').hidden=gearbox!=='auto';gear=gearbox==='manual'?'1':'D';$('#gearValue').textContent=gear;}));
 document.querySelectorAll('[data-camera]').forEach(b=>b.addEventListener('click',()=>{camera=b.dataset.camera;document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x===b));}));
