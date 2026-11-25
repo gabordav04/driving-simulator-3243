@@ -105,9 +105,18 @@ function positionOnRoute(meters){
 function advanceMapCar(dt){
   if(!mapDriving||!routeCar||!routePathMeters.length)return;
   const total=routePathMeters[routePathMeters.length-1];
-  routeProgressMeters=Math.min(total,routeProgressMeters+Math.max(0,speed)*dt);
-  const pos=positionOnRoute(routeProgressMeters);if(pos)routeCar.setPosition(pos);
-  if(routeProgressMeters>=total){mapDriving=false;started=false;speed=0;say('Маршрут завершено','Ти доїхав до кінцевої точки прокладеної траєкторії.');}
+  routeProgressMeters=Math.max(0,Math.min(total,routeProgressMeters+speed*dt));
+  routeLateralOffset=Math.max(-2.2,Math.min(2.2,routeLateralOffset+steering*1.25*dt));
+  const base=positionOnRoute(routeProgressMeters);
+  if(base){
+    const heading=routeHeadingAt(routeProgressMeters),rad=heading*Math.PI/180;
+    const latOffset=(routeLateralOffset/111320)*Math.cos(rad);
+    const lngOffset=(routeLateralOffset/(111320*Math.max(.2,Math.cos(base.lat*Math.PI/180))))*-Math.sin(rad);
+    routeCar.setPosition({lat:base.lat+latOffset,lng:base.lng+lngOffset});
+  }
+  if((speed>=0&&routeProgressMeters>=total)||(speed<0&&routeProgressMeters<=0)){
+    if(speed>=0&&routeProgressMeters>=total){mapDriving=false;started=false;speed=0;say('Маршрут завершено','Ти доїхав до кінцевої точки прокладеної траєкторії.');}
+  }
 }
 function renderRoutePointCount(){const el=$('#routePointCount');if(el)el.textContent='Точок: '+routePoints.length;}
 function clearRouteMarkers(){routePointMarkers.forEach(m=>m.setMap(null));routePointMarkers=[];}
@@ -650,7 +659,7 @@ function renderThreeSimulator(){
  threeRenderer.render(threeScene,threeCamera);
 }
 
-let mode='exam',gearbox='manual',gear='1',camera='cockpit',started=false,speed=0,elapsed=0,distance=0,steering=0,signal='—',lights=false,keys={},last=performance.now(),turnClock=0,lessonShown=false;
+let mode='exam',gearbox='auto',gear='D',camera='cockpit',started=false,speed=0,elapsed=0,distance=0,steering=0,signal='—',lights=false,keys={},last=performance.now(),turnClock=0,lessonShown=false,routeLateralOffset=0;
 const scenarios={
  intersection:{title:'Наближення до перехрестя',text:'Завчасно зменш швидкість. Оціни знаки пріоритету, оглянь обидва напрямки та переконайся, що маневр безпечний.'},
  pedestrian:{title:'Пішохідний перехід',text:'Зменш швидкість і стеж за тротуарами з обох боків. Будь готовий зупинитися, щоб пропустити пішохода.'},
@@ -714,7 +723,7 @@ $('#start').addEventListener('click',()=>{
   started=true;speed=0;
   if(mapVisible||driverVisible){
     if(routePath.length){
-      mapDriving=true;routeProgressMeters=0;lastPanoMeters=-100;lastPanoRequest=0;streetPanoPending=false;
+      mapDriving=true;routeProgressMeters=0;routeLateralOffset=0;lastPanoMeters=-100;lastPanoRequest=0;streetPanoPending=false;
       const p=positionOnRoute(0);if(p){if(googleMap)ensureMapCar(p);else if(routeCar)routeCar.setPosition(p);}
       if(driverVisible)syncStreetViewToRoute(true);
       setRouteEditStatus('Заїзд розпочато. Натисни ▲ або утримуй W/↑ для газу. Автомобіль рухається по побудованій дорозі.');
@@ -724,15 +733,28 @@ $('#start').addEventListener('click',()=>{
     }
   }
   updateStatus();$('#modeName').textContent='Екзаменаційний режим';$('#assessment').textContent='Фіксація помилок та оцінювання';say('Іспит розпочато','Натисни ▲ на екрані або утримуй W/↑ для руху.');});
-$('#reset').addEventListener('click',()=>{speed=0;started=false;mapDriving=false;routeProgressMeters=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';say('Автомобіль скинуто','Натисніть «Почати заїзд», щоб почати знову.');});
+$('#reset').addEventListener('click',()=>{speed=0;started=false;mapDriving=false;routeProgressMeters=0;routeLateralOffset=0;if(routeCar&&routePath.length)routeCar.setPosition(routePath[0]);elapsed=0;distance=0;steering=0;signal='—';updateStatus();$('#elapsed').textContent='00:00';say('Автомобіль скинуто','Натисніть «Почати заїзд», щоб почати знову.');});
 document.querySelectorAll('[data-box]').forEach(b=>b.addEventListener('click',()=>{gearbox=b.dataset.box;document.querySelectorAll('[data-box]').forEach(x=>x.classList.toggle('active',x===b));$('#manualGears').hidden=gearbox!=='manual';$('#autoGears').hidden=gearbox!=='auto';gear=gearbox==='manual'?'1':'D';$('#gearValue').textContent=gear;}));
 document.querySelectorAll('[data-camera]').forEach(b=>b.addEventListener('click',()=>{camera=b.dataset.camera;document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x===b));}));
 document.querySelectorAll('[data-gear]').forEach(b=>b.addEventListener('click',()=>{gear=b.dataset.gear;document.querySelectorAll('[data-gear]').forEach(x=>x.classList.toggle('chosen',x===b));$('#gearValue').textContent=gear;}));
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();keys[k]=true;if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(e.key))e.preventDefault();if(k==='q')setSignal('←');if(k==='e')setSignal('→');if(k==='l'){lights=!lights;$('#lights').textContent='Світло: '+(lights?'увімкнено':'вимкнено');updateStatus();}if(k==='c'){camera=camera==='cockpit'?'chase':'cockpit';document.querySelectorAll('[data-camera]').forEach(x=>x.classList.toggle('active',x.dataset.camera===camera));}});
 window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
 document.querySelectorAll('[data-touch]').forEach(b=>{const k=b.dataset.touch;b.addEventListener('pointerdown',e=>{e.preventDefault();keys[k]=true;});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>keys[k]=false));});
-function animate(now){const dt=Math.min((now-last)/1000,.04);last=now;if(started){if(keys.w||keys.arrowup)speed=Math.min(speed+8*dt,gearbox==='auto'?20:Math.max(5,Number(gear)||1)*5);else speed=Math.max(0,speed-2.4*dt);if(keys.s||keys.arrowdown||keys[' '])speed=Math.max(0,speed-14*dt);const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);steering+=(steerTarget-steering)*Math.min(1,dt*4);distance+=speed*dt*12;if(mapVisible||driverVisible)advanceMapCar(dt);
-if(driverVisible&&mapDriving)syncStreetViewToRoute(false);
-elapsed+=dt;turnClock+=dt;updateGuide(now);$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);}$('#speed').textContent=Math.round(speed*3.6);draw();
-requestAnimationFrame(animate);}
+function animate(now){
+ const dt=Math.min((now-last)/1000,.04);last=now;
+ if(started){
+  const forward=keys.w||keys.arrowup,reverse=keys.s||keys.arrowdown;
+  if(forward)speed=Math.min(12,speed+5*dt);
+  else if(reverse)speed=Math.max(-6,speed-5*dt);
+  else speed=Math.abs(speed)<.12?0:speed-Math.sign(speed)*Math.min(Math.abs(speed),3.5*dt);
+  const steerTarget=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
+  steering+=(steerTarget-steering)*Math.min(1,dt*3.5);
+  distance+=Math.abs(speed)*dt*12;
+  if(mapVisible||driverVisible)advanceMapCar(dt);
+  if(driverVisible&&mapDriving&&Math.abs(speed)>.2)syncStreetViewToRoute(false);
+  elapsed+=dt;turnClock+=dt;updateGuide(now);$('#elapsed').textContent=new Date(elapsed*1000).toISOString().slice(14,19);
+ }else{steering*=.9;speed=0;}
+ $('#speed').textContent=Math.round(speed*3.6);draw();
+ requestAnimationFrame(animate);
+}
 requestAnimationFrame(animate);
