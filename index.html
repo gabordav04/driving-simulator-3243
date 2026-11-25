@@ -68,7 +68,25 @@ window.addEventListener('unhandledrejection',function(e){
 </div>
 <div id="mapMessage" class="mapmessage">Введи свій Google Maps API-ключ у лівій панелі та натисни «Зберегти ключ».</div>
 <canvas id="scene3d" aria-label="Тривимірна модель автомобіля та дороги"></canvas><canvas id="scene" aria-label="Резервна симуляція руху автомобіля"></canvas><div class="hud"><div><small>ШВИДКІСТЬ</small><b><span id="speed">0</span> <small>км/год</small></b></div><div><small>ПЕРЕДАЧА</small><b id="gearValue">1</b></div><div><small>ЧАС</small><b id="elapsed">00:00</b></div><div><small>ПОВОРОТНИК</small><b id="signalValue">—</b></div></div><div class="coach"><div class="coachicon">🧑‍✈️</div><div><b id="coachTitle">Іспит готовий до початку</b><p id="coachText">Натисніть «Почати заїзд». Клавіші керування: W/A/S/D або стрілки.</p></div></div><div class="controls"><kbd>W/↑</kbd> газ <kbd>S/↓</kbd> гальмо <kbd>A/←</kbd> ліворуч <kbd>D/→</kbd> праворуч <kbd>Q</kbd>/<kbd>E</kbd> поворотники <kbd>L</kbd> світло <kbd>C</kbd> камера</div><div class="touch"><button data-touch="a">◀</button><button data-touch="w">▲</button><button data-touch="d">▶</button><button data-touch="s">▼</button></div></section>
-<aside class="panel side"><details class="mobile-fold instructor-fold" open><summary>Панель іспиту</summary><div class="fold-content"><div class="eyebrow">ЕКЗАМЕНАЦІЙНА ПАНЕЛЬ</div><h2 id="modeName">Екзаменаційний режим</h2><div class="metric"><small>ЗАРЕЄСТРОВАНО ПОМИЛОК</small><strong id="mistakes">0</strong><span id="assessment">Фіксація помилок та оцінювання</span></div><div class="block"><h3>Керування автомобілем</h3><div id="manualGears" class="gears"><button data-gear="R">R</button><button class="chosen" data-gear="1">1</button><button data-gear="2">2</button><button data-gear="3">3</button><button data-gear="4">4</button><button data-gear="5">5</button></div><div id="autoGears" class="gears" hidden><button data-gear="P">P</button><button data-gear="R">R</button><button data-gear="N">N</button><button class="chosen" data-gear="D">D</button></div><div class="tools"><button id="leftSignal">← Поворот</button><button id="rightSignal">Поворот →</button><button id="lights">Світло: вимкнено</button><button id="horn">Звуковий сигнал</button></div></div> <div class="block"><h3>Стан автомобіля</h3><p class="muted" id="carState">Двигун зупинений · світло вимкнено</p></div></div></details></aside>
+<aside class="panel side"><details class="mobile-fold instructor-fold" open><summary>Панель іспиту</summary><div class="fold-content"><div class="eyebrow">ЕКЗАМЕНАЦІЙНА ПАНЕЛЬ</div><h2 id="modeName">Екзаменаційний режим</h2><div class="metric"><small>ЗАРЕЄСТРОВАНО ПОМИЛОК</small><strong id="mistakes">0</strong><span id="assessment">Фіксація помилок та оцінювання</span></div>
+<div class="exam-console block">
+ <h3>ХІД ІСПИТУ</h3>
+ <div class="exam-clock"><span>ЗАЛИШИЛОСЯ</span><strong id="examTimer">20:00</strong></div>
+ <p id="examState" class="muted">Очікування початку іспиту</p>
+ <button id="nextExamCommand" type="button" disabled>🔊 Наступна команда екзаменатора</button>
+ <label for="examMistakeType">Зафіксувати типову помилку</label>
+ <select id="examMistakeType">
+  <option value="Не виконав вимогу дорожнього знака або розмітки">Не виконав вимогу знака або розмітки</option>
+  <option value="Не надав перевагу в русі">Не надав перевагу в русі</option>
+  <option value="Не подав сигнал перед маневром">Не подав сигнал перед маневром</option>
+  <option value="Неправильно виконав поворот або перестроювання">Неправильно виконав поворот або перестроювання</option>
+  <option value="Порушив правила зупинки">Порушив правила зупинки</option>
+  <option value="Інша типова помилка">Інша типова помилка</option>
+ </select>
+ <button id="recordExamMistake" type="button" disabled>＋ Зареєструвати помилку</button>
+ <button id="dangerExamStop" type="button" class="danger-button" disabled>⚠ Небезпечна ситуація — припинити іспит</button>
+ <ol id="examMistakeLog" class="exam-log"><li>Помилок поки немає</li></ol>
+</div><div class="block"><h3>Керування автомобілем</h3><div id="manualGears" class="gears"><button data-gear="R">R</button><button class="chosen" data-gear="1">1</button><button data-gear="2">2</button><button data-gear="3">3</button><button data-gear="4">4</button><button data-gear="5">5</button></div><div id="autoGears" class="gears" hidden><button data-gear="P">P</button><button data-gear="R">R</button><button data-gear="N">N</button><button class="chosen" data-gear="D">D</button></div><div class="tools"><button id="leftSignal">← Поворот</button><button id="rightSignal">Поворот →</button><button id="lights">Світло: вимкнено</button><button id="horn">Звуковий сигнал</button></div></div> <div class="block"><h3>Стан автомобіля</h3><p class="muted" id="carState">Двигун зупинений · світло вимкнено</p></div></div></details></aside>
 </main><footer>Екзаменаційний симулятор є тренувальним програмним забезпеченням і не є офіційним сервісом ТСЦ МВС. Схеми надані користувачем; фактична геометрія доріг і оцінювання потребують верифікації.</footer>
 <script type="module" src="/src/main.js"></script>
 </body></html>
