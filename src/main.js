@@ -441,20 +441,44 @@ $('#buildRoute').addEventListener('click',async()=>{
   if(routePoints.length<2){setRouteEditStatus('Потрібно щонайменше 2 точки: старт і фініш. Для точного маршруту додавай точки на кожному повороті.');return;}
   try{
     const {Route}=await google.maps.importLibrary('routes');
-    setRouteEditStatus('Google Maps прокладає дорогу між контрольними точками…');
-    const req={origin:routePoints[0],destination:routePoints[routePoints.length-1],
-      intermediates:routePoints.slice(1,-1).map(location=>({location, via:true})),
-      travelMode:'DRIVING',optimizeWaypointOrder:false,language:'uk',
-      fields:['path','legs','distanceMeters','durationMillis']};
-    const {routes}=await Route.computeRoutes(req);
-    if(!routes?.length){setRouteEditStatus('Google не знайшов дорожню траєкторію для цих точок. Перевір їх розташування.');return;}
-    if(routeLine)routeLine.setMap(null);
-    const lines=routes[0].createPolylines({polylineOptions:{strokeColor:'#075de5',strokeOpacity:0.95,strokeWeight:7}});
-    lines.forEach(line=>line.setMap(null));
-    if(routes[0].path?.length){const bounds=new google.maps.LatLngBounds();routes[0].path.forEach(p=>bounds.extend(p));googleMap.fitBounds(bounds);}
-    const km=(routes[0].distanceMeters/1000).toFixed(2);
-    prepareRoutePath(routes[0].path||[]);
-    setRouteEditStatus('Дорожню траєкторію побудовано ('+km+' км). Натисни «Почати заїзд», щоб рухати автомобіль по цій лінії. Перевір відповідність офіційній схемі №1.');
+    // Routes API allows at most 25 intermediate waypoints per request.
+    // Split longer user-drawn routes into segments of up to 27 points,
+    // sharing the previous segment's final point as the next segment's origin.
+    const MAX_POINTS_PER_REQUEST=27;
+    const combinedPath=[];
+    let totalDistanceMeters=0;
+    const segmentCount=Math.ceil((routePoints.length-1)/(MAX_POINTS_PER_REQUEST-1));
+    for(let startIndex=0,segment=1;startIndex<routePoints.length-1;startIndex+=MAX_POINTS_PER_REQUEST-1,segment++){
+      const segmentPoints=routePoints.slice(startIndex,Math.min(startIndex+MAX_POINTS_PER_REQUEST,routePoints.length));
+      setRouteEditStatus('Google прокладає ділянку '+segment+' із '+segmentCount+'… ('+segmentPoints.length+' контрольних точок)');
+      const req={
+        origin:segmentPoints[0],
+        destination:segmentPoints[segmentPoints.length-1],
+        intermediates:segmentPoints.slice(1,-1).map(location=>({location,via:true})),
+        travelMode:'DRIVING',
+        optimizeWaypointOrder:false,
+        language:'uk',
+        fields:['path','legs','distanceMeters','durationMillis']
+      };
+      const result=await Route.computeRoutes(req);
+      if(!result.routes?.length)throw new Error('Google не знайшов дорожню траєкторію для ділянки '+segment+' із '+segmentCount+'. Перевір контрольні точки цієї ділянки.');
+      const route=result.routes[0];
+      const segmentPath=(route.path||[]).map(p=>({lat:typeof p.lat==='function'?p.lat():p.lat,lng:typeof p.lng==='function'?p.lng():p.lng}));
+      if(!segmentPath.length)throw new Error('Google повернув порожню траєкторію для ділянки '+segment+'.');
+      if(combinedPath.length&&segmentPath.length){
+        const last=combinedPath[combinedPath.length-1],first=segmentPath[0];
+        if(Math.abs(last.lat-first.lat)<1e-7&&Math.abs(last.lng-first.lng)<1e-7)segmentPath.shift();
+      }
+      combinedPath.push(...segmentPath);
+      totalDistanceMeters+=route.distanceMeters||0;
+    }
+    if(combinedPath.length<2)throw new Error('Google повернув недостатньо координат для маршруту.');
+    prepareRoutePath(combinedPath);
+    const bounds=new google.maps.LatLngBounds();
+    combinedPath.forEach(p=>bounds.extend(p));
+    googleMap.fitBounds(bounds);
+    const km=(totalDistanceMeters/1000).toFixed(2);
+    setRouteEditStatus('Дорожню траєкторію побудовано повністю: '+km+' км, '+routePoints.length+' контрольних точок, '+segmentCount+' запит(и) до Google. Натисни «Почати заїзд», щоб перевірити рух автомобіля.');
   }catch(err){
     const detail={
       name:err?.name||'Error',
