@@ -151,3 +151,19 @@
 #googleDiagReport{white-space:pre-wrap;overflow-wrap:anywhere;color:#eaf5f7;font:10px/1.45 ui-monospace,monospace;margin:0 0 8px}
 #googleDiagDetails[hidden]{display:none}
 @media(max-width:700px){.google-diag-panel{left:8px;bottom:55px;max-width:calc(100% - 16px)}#googleDiagDetails{max-height:38vh}}
+
+/* iPad route tracing editor */
+.route-editor-toggle{position:absolute;z-index:1150;top:60px;right:12px;padding:9px 13px;border-radius:9px;background:#10202d;color:#eaf5f7;border:1px solid #8bd4c0;font-weight:800;font-size:12px;box-shadow:0 2px 8px #0004}
+.route-editor{position:absolute!important;z-index:1140!important;top:108px;left:10px;width:min(330px,calc(100% - 20px));max-height:48%;overflow:auto;background:#101923f2;border:1px solid #8bd4c0;border-radius:12px;padding:8px;color:#eef5f8;box-shadow:0 4px 16px #0005}
+.route-editor>summary{cursor:pointer;font-weight:800;padding:8px;list-style:none}
+.route-editor>summary::-webkit-details-marker{display:none}
+.route-editor-content{display:flex;flex-direction:column;gap:7px;padding:5px}
+.route-editor-content button{min-height:38px;border-radius:8px;padding:8px 10px;background:#273746;color:#f2f7fa;border:1px solid #607586;font-size:12px;font-weight:700}
+.route-editor-content button.active{background:#8bd4c0;color:#10221e;border-color:#8bd4c0}
+.route-editor-content small{display:block;color:#d6e5eb;line-height:1.4;white-space:normal}
+.routeSchemeLink{color:#a8e6d5;font-size:12px}
+@media(max-width:700px){
+ .route-editor-toggle{top:57px;right:8px;font-size:11px;padding:8px 10px}
+ .route-editor{top:103px;left:8px;width:min(300px,calc(100% - 16px));max-height:42%}
+ .route-editor-content button{min-height:42px;font-size:12px}
+}
