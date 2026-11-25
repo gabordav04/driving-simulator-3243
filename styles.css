@@ -167,3 +167,32 @@
  .route-editor{top:103px;left:8px;width:min(300px,calc(100% - 16px));max-height:42%}
  .route-editor-content button{min-height:42px;font-size:12px}
 }
+
+
+/* Touch driving controls remain available on iPad, including Street View mode. */
+@media (hover: none) and (pointer: coarse) {
+  .sim .touch,
+  .sim.view-clean .touch {
+    display: flex !important;
+    position: absolute;
+    z-index: 20;
+    left: 12px;
+    right: 12px;
+    bottom: 72px;
+    justify-content: space-between;
+    gap: 12px;
+    pointer-events: auto;
+  }
+  .sim .touch button {
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    font-size: 24px;
+    background: #101923eF;
+    border: 2px solid #8bd4c0;
+    color: #ffffff;
+    touch-action: none;
+    user-select: none;
+  }
+  .sim.view-clean .touch button { background: #101923eF; }
+}
